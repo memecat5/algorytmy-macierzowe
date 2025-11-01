@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include <vector>
 
 using Matrix = std::vector<std::vector<double>>;
@@ -151,6 +152,9 @@ Matrix multiplyBinet(const Matrix& A, const Matrix& B) {
     int m = A.size();          // wiersze A
     int n = A[0].size();       // kolumny A = wiersze B
     int p = B[0].size();       // kolumny B
+
+    if (B.size() != A[0].size())
+        throw std::invalid_argument("Niepoprawne rozmiary macierzy, mnożenie niemożliwe");
 
     Matrix C = createMatrix(m, p);
     multiplyRecursive(A, 0, 0, B, 0, 0, C, 0, 0, m, n, p);
