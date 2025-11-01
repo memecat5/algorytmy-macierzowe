@@ -96,7 +96,7 @@ void multiplyRecursive(
     int b21_col = b_col;
 
     int b22_row = b_row + n2;
-    int b22_col = a_col + p2;
+    int b22_col = b_col + p2;
 
     // Podział C
     int c11_row = c_row;
