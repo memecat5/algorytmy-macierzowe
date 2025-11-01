@@ -3,6 +3,5 @@
 
 using Matrix = std::vector<std::vector<double>>;
 
-Matrix createMatrix(int rows, int cols, int value = 0);
+Matrix createMatrix(int rows, int cols, double value = 0.);
 Matrix multiplyBinet(const Matrix& A, const Matrix& B);
-bool equalMatrix(const Matrix& A, const Matrix& B);

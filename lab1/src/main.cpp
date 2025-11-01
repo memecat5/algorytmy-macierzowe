@@ -1,7 +1,5 @@
 #include "multiply_binet.hpp"
-
 #include <iostream>
-#include <vector>
 
 // Wypisywanie macierzy
 void printMatrix(const Matrix& M) {

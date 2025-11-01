@@ -1,19 +1,9 @@
 #include <stdexcept>
 #include <vector>
-
-using Matrix = std::vector<std::vector<double>>;
-
-bool equalMatrix(const Matrix& A, const Matrix& B) {
-    if (A.size() != B.size() || A[0].size() != B[0].size()) return false;
-    for (size_t i = 0; i < A.size(); ++i)
-        for (size_t j = 0; j < A[0].size(); ++j)
-            if (A[i][j] != B[i][j])
-                return false;
-    return true;
-}
+#include "multiply_binet.hpp"
 
 // Tworzy pustą macierz o wymiarach rows x cols
-Matrix createMatrix(int rows, int cols, double value = 0) {
+Matrix createMatrix(int rows, int cols, double value) {
     return Matrix(rows, std::vector<double>(cols, value));
 }
 
