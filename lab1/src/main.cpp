@@ -25,7 +25,7 @@ int main() {
     };
 
 
-    Matrix C = multiplyMatrix(A, B);
+    Matrix C = multiplyBinet(A, B);
 
     std::cout << "\nWynik A * B:\n";
     printMatrix(C);

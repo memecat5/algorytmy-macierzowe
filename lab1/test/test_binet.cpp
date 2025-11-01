@@ -77,7 +77,7 @@ TEST(MatrixMultiplicationTest, UnequalSplit_3x2_2x4) {
         {101, 112, 123, 134}
     };
 
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
 }
 
@@ -106,7 +106,7 @@ TEST(MatrixMultiplicationTest, UnequalSplit_5x3_3x2) {
         {28, 29}
     };
 
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
 }
 
@@ -124,7 +124,7 @@ TEST(MatrixMultiplicationTest, SingleRowCol_1x5_5x1) {
     };
 
     Matrix expected = { {55} };
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
 }
 
@@ -146,7 +146,7 @@ TEST(MatrixMultiplicationTest, FloatingPointValues) {
         {2.5*4 + 3.5*6, 2.5*5 + 3.5*7}
     };
 
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
 }
 
@@ -170,7 +170,7 @@ TEST(MatrixMultiplicationTest, UnequalSplit_3x3_3x2) {
         {164, 140}
     };
 
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
 }
 
@@ -204,7 +204,7 @@ TEST(MatrixMultiplicationTest, LargeUnequal_6x5_5x3) {
         {84, 84, 83}
     };
 
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
     printMatrix(result);
 }
@@ -214,7 +214,7 @@ TEST(RecursiveVsNaive, LargeDeterministic_30x25_25x20) {
     Matrix A = randomMatrix(30, 25, *new std::mt19937(12345), *new std::uniform_real_distribution<double>(-5.0,5.0));
     Matrix B = randomMatrix(25, 20, *new std::mt19937(54321), *new std::uniform_real_distribution<double>(-5.0,5.0));
     Matrix expected = naiveMultiply(A, B);
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     if (!approxEqualTol(result, expected, 1e-9)) {
         printMatrixStdout(expected, "Expected");
         printMatrixStdout(result,   "Got     ");
@@ -226,7 +226,7 @@ TEST(RecursiveVsNaive, LargeDeterministic_40x30_30x35) {
     Matrix A = randomMatrix(40, 30, *new std::mt19937(11111), *new std::uniform_real_distribution<double>(-3.0,3.0));
     Matrix B = randomMatrix(30, 35, *new std::mt19937(22222), *new std::uniform_real_distribution<double>(-3.0,3.0));
     Matrix expected = naiveMultiply(A, B);
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
     if (!approxEqualTol(result, expected, 1e-9)) {
         printMatrixStdout(expected, "Expected");
         printMatrixStdout(result,   "Got     ");
@@ -250,7 +250,7 @@ TEST(RecursiveVsNaive, RandomizedComparisons) {
         Matrix B = randomMatrix(n, p, rng, valDist);
 
         Matrix expected = naiveMultiply(A, B);
-        Matrix result = multiplyMatrix(A, B);
+        Matrix result = multiplyBinet(A, B);
 
         if (!approxEqualTol(result, expected, 1e-9)) {
             std::cout << "\n---- Random test failed (m=" << m << " n=" << n << " p=" << p << ") ----\n";
@@ -274,7 +274,7 @@ TEST(RecursiveVsNaive, StressModerate_60x40_40x30) {
     Matrix B = randomMatrix(40, 30, rng, valDist);
 
     Matrix expected = naiveMultiply(A, B);
-    Matrix result = multiplyMatrix(A, B);
+    Matrix result = multiplyBinet(A, B);
 
     if (!approxEqualTol(result, expected, 1e-9)) {
         std::cout << "\n---- Stress test failed ----\n";

@@ -147,7 +147,7 @@ void multiplyRecursive(
 }
 
 // Funkcja pomocnicza — uruchamia mnożenie rekurencyjne
-Matrix multiplyMatrix(const Matrix& A, const Matrix& B) {
+Matrix multiplyBinet(const Matrix& A, const Matrix& B) {
     int m = A.size();          // wiersze A
     int n = A[0].size();       // kolumny A = wiersze B
     int p = B[0].size();       // kolumny B
