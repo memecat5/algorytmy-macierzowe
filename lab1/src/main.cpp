@@ -1,19 +1,32 @@
+#include "multiply_binet.hpp"
+
 #include <iostream>
 #include <vector>
 
-using namespace std;
+// Wypisywanie macierzy
+void printMatrix(const Matrix& M) {
+    for (const auto& row : M) {
+        for (int val : row) std::cout << val << " ";
+        std::cout << "\n";
+    }
+}
 
-class Matrix{
+// --- main ---
+int main() {
+    Matrix A = {
+        {2,1,3},
+        {7,2,1},
+        {3,7,2}
+    };
+    Matrix B = {
+        {1},
+        {2},
+        {3}
+    };
 
-    vector<vector<int>> M;
 
-    
+    Matrix C = multiplyMatrix(A, B);
 
-
-
-};
-
-
-int main(){
-    cout<<"Hello world\n";
+    std::cout << "\nWynik A * B:\n";
+    printMatrix(C);
 }
