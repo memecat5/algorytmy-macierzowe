@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "multiply_binet.hpp" 
+#include "multiply_binet.hpp"
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -206,7 +206,6 @@ TEST(MatrixMultiplicationTest, LargeUnequal_6x5_5x3) {
 
     Matrix result = multiplyBinet(A, B);
     EXPECT_TRUE(approxEqualTol(result, expected));
-    printMatrix(result);
 }
 
 // ---------- TEST: deterministic larger cases (no hardcoded expected) ----------
