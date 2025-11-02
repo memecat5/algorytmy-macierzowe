@@ -1,0 +1,49 @@
+#!/usr/bin/python3
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+csv_data = pd.read_csv('results.csv', sep=',')
+
+n_data = list(csv_data['n'])
+time_data = list(csv_data['time_seconds'])
+mem_data = list(csv_data['mem_delta_MB'])
+
+# ==============================
+# 1. Wykres czasu działania
+# ==============================
+plt.figure(figsize=(7,5))
+plt.plot(n_data, time_data, 'bo-', label='Czas [s]')
+plt.xlabel('Rozmiar macierzy n')
+plt.ylabel('Czas działania [s]')
+plt.title('Czas działania metody rekurencyjnej')
+plt.grid(True)
+plt.legend()
+plt.savefig('czas_dzialania.png', dpi=150)
+# plt.show()
+
+# ==============================
+# 2. Wykres liczby operacji zmiennoprzecinkowych
+# ==============================
+plt.figure(figsize=(7,5))
+plt.plot(n_data, [x**3 for x in n_data], 'ro-', label='Operacje zmiennoprzecinkowe')
+plt.xlabel('Rozmiar macierzy n')
+plt.ylabel('Liczba operacji')
+plt.title('Liczba operacji w metodzie rekurencyjnej')
+plt.grid(True)
+plt.legend()
+plt.savefig('liczba_operacji.png', dpi=150)
+# plt.show()
+
+# ==============================
+# 3. Wykres zużycia pamięci
+# ==============================
+plt.figure(figsize=(7,5))
+plt.plot(n_data, mem_data, 'go-', label='Pamięć [MB]')
+plt.xlabel('Rozmiar macierzy n')
+plt.ylabel('Zużycie pamięci [MB]')
+plt.title('Zużycie pamięci w metodzie rekurencyjnej')
+plt.grid(True)
+plt.legend()
+plt.savefig('zuzycie_pamieci.png', dpi=150)
+# plt.show()
