@@ -8,18 +8,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ==========================
 # BIBLIOTEKA Z LOGIKĄ
 # ==========================
-add_library(matrix_mult
-    src/multiply_binet.cpp
-)
-target_include_directories(matrix_mult PUBLIC include)
-target_compile_options(matrix_mult PRIVATE -Wall -Wextra -pedantic)
+add_library(multiply_binet src/multiply_binet.cpp)
+target_include_directories(multiply_binet PUBLIC include)
+target_compile_options(multiply_binet PRIVATE -Wall -Wextra -pedantic -O3)
+
+add_library(multiply_strassen src/multiply_strassen.cpp)
+target_include_directories(multiply_strassen PUBLIC include)
+target_compile_options(multiply_strassen PRIVATE -Wall -Wextra -pedantic -O3)
 
 # ==========================
 # GŁÓWNY PROGRAM
 # ==========================
 add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE matrix_mult)
-
+target_link_libraries(${PROJECT_NAME} PRIVATE multiply_binet multiply_strassen)
 
 # ==========================
 # GOOGLE TEST
