@@ -25,5 +25,15 @@ gtest_discover_tests(strassen_tests
     PROPERTIES LABELS "strassen"
 )
 
+# ==== ALPHA TENSOR TESTS ====
+add_executable(ai_tests test_alpha_tensor.cpp)
+
+target_link_libraries(ai_tests
+    PRIVATE
+        multiply_ai
+        GTest::gtest_main
+)
+
 add_test(NAME all_binet_tests COMMAND binet_tests)
 add_test(NAME all_strassen_tests COMMAND strassen_tests)
+add_test(NAME all_ai_tests COMMAND ai_tests)

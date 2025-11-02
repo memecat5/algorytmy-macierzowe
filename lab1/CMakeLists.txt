@@ -16,6 +16,10 @@ add_library(multiply_strassen src/multiply_strassen.cpp)
 target_include_directories(multiply_strassen PUBLIC include)
 target_compile_options(multiply_strassen PRIVATE -Wall -Wextra -pedantic -O3)
 
+add_library(multiply_ai src/multiply_alpha_tensor.cpp)
+target_include_directories(multiply_ai PUBLIC include)
+target_compile_options(multiply_ai PRIVATE -Wall -Wextra -pedantic -O3)
+
 # ==========================
 # GŁÓWNY PROGRAM
 # ==========================
