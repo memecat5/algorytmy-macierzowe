@@ -4,16 +4,22 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 csv_data = pd.read_csv('results.csv', sep=',')
+csv_data_strassen = pd.read_csv('results.csv', sep=',')
 
 n_data = list(csv_data['n'])
 time_data = list(csv_data['time_seconds'])
 mem_data = list(csv_data['mem_delta_MB'])
 
+n_data_strassen = list(csv_data_strassen['n'])
+time_data_strassen = list(csv_data_strassen['time_seconds'])
+mem_data_strassen = list(csv_data_strassen['mem_delta_MB'])
+
 # ==============================
 # 1. Wykres czasu działania
 # ==============================
 plt.figure(figsize=(7,5))
-plt.plot(n_data, time_data, 'bo-', label='Czas [s]')
+plt.plot(n_data, time_data, 'bo-', label='Czas [s] (Binet)')
+plt.plot(n_data_strassen, time_data_strassen, 'ro-', label='Czas [s] (Strassen)')
 plt.xlabel('Rozmiar macierzy n')
 plt.ylabel('Czas działania [s]')
 plt.title('Czas działania metody rekurencyjnej')
@@ -26,7 +32,8 @@ plt.savefig('czas_dzialania.png', dpi=150)
 # 2. Wykres zużycia pamięci
 # ==============================
 plt.figure(figsize=(7,5))
-plt.plot(n_data, mem_data, 'go-', label='Pamięć [MB]')
+plt.plot(n_data, mem_data, 'bo-', label='Pamięć [MB] (Binet)')
+plt.plot(n_data_strassen, mem_data_strassen, 'ro-', label='Pamięć [MB] (Strassen)')
 plt.xlabel('Rozmiar macierzy n')
 plt.ylabel('Zużycie pamięci [MB]')
 plt.title('Zużycie pamięci metody rekurencyjnej')
