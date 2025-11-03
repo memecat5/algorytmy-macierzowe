@@ -54,18 +54,14 @@ int main() {
         Matrix A = randomMatrix(n, n);
         Matrix B = randomMatrix(n, n);
 
-        // Pomiar czasu i pamięci
-        double mem_before = getMemoryUsageMB();
-
         double t1 = measureTime([&]() {
             auto C = multiplyBinet(A, B);
         });
 
         double mem_after = getMemoryUsageMB();
-        double mem_delta = mem_after - mem_before;
 
         out << n << "," << fixed << setprecision(8) << t1
-            << "," << setprecision(4) << mem_delta << "\n";
+            << "," << setprecision(4) << mem_after << "\n";
     }
 
     out.close();
