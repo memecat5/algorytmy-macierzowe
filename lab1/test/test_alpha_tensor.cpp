@@ -74,8 +74,6 @@ TEST(AlphaTensorTest, IdentityRight) {
                 {0,0,0,1,0},
                 {0,0,0,0,1}};
     checkEqual(verifyMultiplyClassic(A, B), multiplyAI(A, B));
-    printMatrix(verifyMultiplyClassic(A, B), "expected");
-    printMatrix(multiplyAI(A, B), "got");
 }
 
 TEST(AlphaTensorTest, IdentityLeft) {
