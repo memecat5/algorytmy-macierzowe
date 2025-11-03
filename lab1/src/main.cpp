@@ -17,7 +17,7 @@ using namespace std;
 // Tworzy losową macierz kwadratową
 Matrix randomMatrix(int n, int seed = 0) {
     mt19937 gen(seed);
-    uniform_real_distribution<double> dist(-5.0, 5.0);
+    uniform_real_distribution<double> dist(0.00000001, 1.0);
     Matrix M(n, vector<double>(n));
     for (int i = 0; i < n; ++i)
         for (int j = 0; j < n; ++j)
@@ -46,22 +46,24 @@ double getMemoryUsageMB() {
 int main() {
     // Zapis wyników do pliku
     ofstream out("results.csv");
-    out << "n,time_seconds,mem_delta_MB\n";
+    out << "n,time_seconds,mem_delta_MB,fadd_count,fmult_count\n";
 
     for (int n = 100; n <= 3000; n += 100) {
         cout << "Measuring n = " << n << "...\n";
 
         Matrix A = randomMatrix(n, n);
         Matrix B = randomMatrix(n, n);
+        Matrix C;
+        long long fadd_count, fmult_count;
 
         double t1 = measureTime([&]() {
-            auto C = multiplyBinet(A, B);
+            C = multiplyBinet(A, B, &fadd_count, &fmult_count);
         });
 
         double mem_after = getMemoryUsageMB();
 
         out << n << "," << fixed << setprecision(8) << t1
-            << "," << setprecision(4) << mem_after << "\n";
+            << "," << setprecision(4) << mem_after << "," << fadd_count << "," << fmult_count << "\n";
     }
 
     out.close();
