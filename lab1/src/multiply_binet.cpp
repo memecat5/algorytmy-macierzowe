@@ -152,7 +152,7 @@ std::pair<long long, long long> multiplyRecursive(
 }
 
 // Funkcja pomocnicza — uruchamia mnożenie rekurencyjne
-Matrix multiplyBinet(const Matrix& A, const Matrix& B, long long *fadd_count = nullptr, long long *fmult_count = nullptr) {
+Matrix multiplyBinet(const Matrix& A, const Matrix& B, long long *fadd_count, long long *fmult_count) {
     int m = A.size();          // wiersze A
     int n = A[0].size();       // kolumny A = wiersze B
     int p = B[0].size();       // kolumny B
