@@ -23,20 +23,7 @@ plt.savefig('czas_dzialania.png', dpi=150)
 # plt.show()
 
 # ==============================
-# 2. Wykres liczby operacji zmiennoprzecinkowych
-# ==============================
-plt.figure(figsize=(7,5))
-plt.plot(n_data, [x*x*(2*x-1) for x in n_data], 'ro-', label='Operacje zmiennoprzecinkowe')
-plt.xlabel('Rozmiar macierzy n')
-plt.ylabel('Liczba operacji')
-plt.title('Liczba operacji metody rekurencyjnej')
-plt.grid(True)
-plt.legend()
-plt.savefig('liczba_operacji.png', dpi=150)
-# plt.show()
-
-# ==============================
-# 3. Wykres zużycia pamięci
+# 2. Wykres zużycia pamięci
 # ==============================
 plt.figure(figsize=(7,5))
 plt.plot(n_data, mem_data, 'go-', label='Pamięć [MB]')
@@ -46,4 +33,23 @@ plt.title('Zużycie pamięci metody rekurencyjnej')
 plt.grid(True)
 plt.legend()
 plt.savefig('zuzycie_pamieci.png', dpi=150)
+# plt.show()
+
+fadd_data = list(csv_data['fadd_count'])
+fmult_data = list(csv_data['fmult_count'])
+flop_data = [sum(x) for x in zip(fadd_data, fmult_data)]
+
+# ==============================
+# 3. Wykres liczby operacji zmiennoprzecinkowych
+# ==============================
+plt.figure(figsize=(7,5))
+plt.plot(n_data, fadd_data, 'ro-', label='Operacje dodawania')
+plt.plot(n_data, fmult_data, 'ro-', label='Operacje mnożenia')
+plt.plot(n_data, flop_data, 'ro-', label='Wszystkie operacje')
+plt.xlabel('Rozmiar macierzy n')
+plt.ylabel('Liczba operacji')
+plt.title('Liczba operacji metody rekurencyjnej')
+plt.grid(True)
+plt.legend()
+plt.savefig('liczba_operacji.png', dpi=150)
 # plt.show()
