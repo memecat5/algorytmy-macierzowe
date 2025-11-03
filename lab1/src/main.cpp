@@ -45,8 +45,29 @@ double getMemoryUsageMB() {
 
 int main() {
     // Zapis wyników do pliku
-    ofstream out("results.csv");
-    out << "n,time_seconds,mem_delta_MB,fadd_count,fmult_count\n";
+    // ofstream out("results.csv");
+    // out << "n,time_seconds,mem_delta_MB,fadd_count,fmult_count\n";
+
+    // for (int n = 100; n <= 3000; n += 100) {
+    //     cout << "Measuring n = " << n << "...\n";
+
+    //     Matrix A = randomMatrix(n, n);
+    //     Matrix B = randomMatrix(n, n);
+    //     Matrix C;
+    //     long long fadd_count, fmult_count;
+
+    //     double t1 = measureTime([&]() {
+    //         C = multiplyBinet(A, B, &fadd_count, &fmult_count);
+    //     });
+
+    //     double mem_after = getMemoryUsageMB();
+
+    //     out << n << "," << fixed << setprecision(8) << t1
+    //         << "," << setprecision(4) << mem_after << "," << fadd_count << "," << fmult_count << "\n";
+    // }
+
+    ofstream out("results_strassen.csv");
+    out << "n,time_seconds,mem_delta_MB\n";
 
     for (int n = 100; n <= 3000; n += 100) {
         cout << "Measuring n = " << n << "...\n";
@@ -57,13 +78,13 @@ int main() {
         long long fadd_count, fmult_count;
 
         double t1 = measureTime([&]() {
-            C = multiplyBinet(A, B, &fadd_count, &fmult_count);
+            C = multiplyStrassen(A, B);
         });
 
         double mem_after = getMemoryUsageMB();
 
         out << n << "," << fixed << setprecision(8) << t1
-            << "," << setprecision(4) << mem_after << "," << fadd_count << "," << fmult_count << "\n";
+            << "," << setprecision(4) << mem_after << "\n";
     }
 
     out.close();
