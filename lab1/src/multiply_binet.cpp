@@ -2,8 +2,6 @@
 #include <vector>
 #include "multiply_binet.hpp"
 
-#include <iostream>
-
 // Tworzy pustą macierz o wymiarach rows x cols
 Matrix createMatrix(int rows, int cols, double value) {
     return Matrix(rows, std::vector<double>(cols, value));
@@ -16,7 +14,9 @@ std::pair<long long, long long> multiplyRecursive(
     Matrix& C, int c_row, int c_col,
     int m, int n, int p)
 {
+    // liczniki operacji
     long long fadd_counter = 0, fmult_counter = 0;
+    
     // x_col, x_row - lewy górny róg rozważanej podmacierzy
 
     // m - liczba wierszy A, n - liczba kolumn A (i wierszy B), p - liczba kolumn B
@@ -34,8 +34,7 @@ std::pair<long long, long long> multiplyRecursive(
     if (m == 0 || n == 0 || p == 0)
         return std::make_pair(0, 0);
 
-    // jeśli któryś wymiar = 1, możesz zamiast schodzić dalej zrobić klasyczne mnożenie
-    // (ja w sumie nie rozumiem czemu to jest potrzebne, ale bez tego testy się wywalają, a czat mówi że ma być XD)
+    // jeśli któryś wymiar = 1 klasyczne mnożenie
     if (m <= 1 || n <= 1 || p <= 1) {
         for (int i = 0; i < m; ++i)
             for (int j = 0; j < p; ++j)

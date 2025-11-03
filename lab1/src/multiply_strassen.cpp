@@ -15,8 +15,8 @@ Matrix createMatrix(size_t rows, size_t cols, double value) {
 }
 
 /* 
-    Podwójne maxy i 2 pętle są dlatego że tutaj możemy mieć do czynienia z dodawaniem 
-    macierzy prostokątnych, a chcemy zawsze zwracać kwadratową, ew. z dopisanymi zerami
+    Dodawanie i odejmowanie dla adaptacyjnego Strassena, które rozszerzają/ucinają wynik,
+    w zależności od tego jaki ma być rozmiar wyniku (target_rows, target_cols)
 */
 Matrix addMatrix(const Matrix& A, const Matrix& B, size_t target_rows, size_t target_cols){
 
@@ -77,7 +77,6 @@ Matrix multiplyClassic(const Matrix& A, const Matrix& B) {
     return C;
 }
 
-// Rekurencyjna wersja Strassena (bez paddingu)
 Matrix strassenRecursive(const Matrix& A, const Matrix& B) {
     int m = rows(A);
     int n = cols(A);
