@@ -1,30 +1,70 @@
-#include "multiply_binet.hpp"
 #include <iostream>
+#include <fstream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <iomanip>
 
-// Wypisywanie macierzy
-void printMatrix(const Matrix& M) {
-    for (const auto& row : M) {
-        for (int val : row) std::cout << val << " ";
-        std::cout << "\n";
-    }
+#include "multiply_binet.hpp"
+#include "multiply_strassen.hpp"
+
+#include <windows.h>
+#include <psapi.h>
+
+using namespace std;
+
+
+// Tworzy losową macierz kwadratową
+Matrix randomMatrix(int n, int seed = 0) {
+    mt19937 gen(seed);
+    uniform_real_distribution<double> dist(-5.0, 5.0);
+    Matrix M(n, vector<double>(n));
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            M[i][j] = dist(gen);
+    return M;
 }
 
-// --- main ---
+// Pomiar czasu w sekundach
+template <typename Func>
+double measureTime(Func f) {
+    auto start = chrono::high_resolution_clock::now();
+    f();
+    auto end = chrono::high_resolution_clock::now();
+    chrono::duration<double> diff = end - start;
+    return diff.count();
+}
+
+// Pomiar aktualnego zużycia pamięci (w MB)
+double getMemoryUsageMB() {
+    PROCESS_MEMORY_COUNTERS info;
+    GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+    return static_cast<double>(info.WorkingSetSize) / (1024.0 * 1024.0);
+}
+
+
 int main() {
-    Matrix A = {
-        {2,1,3},
-        {7,2,1},
-        {3,7,2}
-    };
-    Matrix B = {
-        {1},
-        {2},
-        {3}
-    };
+    // Zapis wyników do pliku
+    ofstream out("results.csv");
+    out << "n,time_seconds,mem_delta_MB\n";
 
+    for (int n = 100; n <= 3000; n += 100) {
+        cout << "Measuring n = " << n << "...\n";
 
-    Matrix C = multiplyBinet(A, B);
+        Matrix A = randomMatrix(n, n);
+        Matrix B = randomMatrix(n, n);
 
-    std::cout << "\nWynik A * B:\n";
-    printMatrix(C);
+        double t1 = measureTime([&]() {
+            auto C = multiplyBinet(A, B);
+        });
+
+        double mem_after = getMemoryUsageMB();
+
+        out << n << "," << fixed << setprecision(8) << t1
+            << "," << setprecision(4) << mem_after << "\n";
+    }
+
+    out.close();
+    cout << "\nWyniki zapisano do pliku results.csv\n";
+    return 0;
 }
