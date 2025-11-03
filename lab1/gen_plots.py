@@ -43,9 +43,9 @@ flop_data = [sum(x) for x in zip(fadd_data, fmult_data)]
 # 3. Wykres liczby operacji zmiennoprzecinkowych
 # ==============================
 plt.figure(figsize=(7,5))
-plt.plot(n_data, fadd_data, 'ro-', label='Operacje dodawania')
-plt.plot(n_data, fmult_data, 'ro-', label='Operacje mnożenia')
-plt.plot(n_data, flop_data, 'ro-', label='Wszystkie operacje')
+plt.plot(n_data, fadd_data, 'o-', label='Operacje dodawania')
+plt.plot(n_data, fmult_data, 'o-', label='Operacje mnożenia')
+plt.plot(n_data, flop_data, 'o-', label='Wszystkie operacje')
 plt.xlabel('Rozmiar macierzy n')
 plt.ylabel('Liczba operacji')
 plt.title('Liczba operacji metody rekurencyjnej')
