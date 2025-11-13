@@ -1,11 +1,14 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <random>
 #include <stdexcept>
+#include <sys/resource.h>  // for memory usage (Linux/macOS)
+#include <unistd.h>
 #include <vector>
 
 using namespace std;
@@ -752,6 +755,68 @@ void plotDetailedMultiplication(const vector<int>& sizes) {
     cout << "\nDane zapisane do pliku 'detailed_multiplication_analysis.csv'\n";
 }
 
+// Helper: get current memory usage in MB
+double getMemoryUsageMB() {
+    struct rusage usage{};
+    getrusage(RUSAGE_SELF, &usage);
+#ifdef __APPLE__
+    return usage.ru_maxrss / (1024.0 * 1024.0);
+#else
+    return usage.ru_maxrss / 1024.0;  // Linux returns kB
+#endif
+}
+
+// Benchmark: test multiplication for n = 1..maxN
+void benchmarkAllSizes(int maxN = 1000) {
+    cout << "\n============================================\n";
+    cout << " BENCHMARK: MATRIX MULTIPLICATION (1.." << maxN << ")\n";
+    cout << "============================================\n";
+
+    ofstream file("matrix_benchmark.csv");
+    file << "n,time_ms,FLOPs,memory_MB,peak_memory_MB,FLOPs_per_sec\n";
+
+    for (int n = 1; n <= maxN; n++) {
+        Matrix A = generateRandomMatrix(n);
+        Matrix B = generateRandomMatrix(n);
+
+        // Theoretical FLOPs for classic O(n³) multiplication
+        double flops = 2.0 * pow(n, 3); // n³ multiplications + n³ additions
+
+        // Estimate memory used by A, B, and result C (3 * n² doubles)
+        double memoryUsageMB = (3.0 * n * n * sizeof(double)) / (1024.0 * 1024.0);
+
+        OpCounter counter;
+        auto mem_before = getMemoryUsageMB();
+        auto start = chrono::high_resolution_clock::now();
+
+        Matrix C = multiplyMatrices(A, B, counter);
+
+        auto end = chrono::high_resolution_clock::now();
+        auto mem_after = getMemoryUsageMB();
+        double time_ms = chrono::duration_cast<chrono::microseconds>(end - start).count() / 1000.0;
+
+        double peakMem = max(mem_before, mem_after);
+        double flopsPerSec = (flops / (time_ms / 1000.0));
+
+        file << n << ","
+             << time_ms << ","
+             << flops << ","
+             << memoryUsageMB << ","
+             << peakMem << ","
+             << flopsPerSec << "\n";
+
+        if (n % 100 == 0 || n == 1 || n == maxN) {
+            cout << setw(5) << n
+                 << " | time=" << setw(8) << fixed << setprecision(4) << time_ms << " ms"
+                 << " | mem=" << setw(7) << setprecision(3) << memoryUsageMB << " MB"
+                 << " | FLOPs/s=" << scientific << flopsPerSec << fixed << "\n";
+        }
+    }
+
+    file.close();
+    cout << "\n✅ Benchmark completed. Results saved to 'matrix_benchmark.csv'\n";
+}
+
 void showMenu() {
     cout << "\n╔════════════════════════════════════════════╗\n";
     cout << "║   OPERACJE NA MACIERZACH - MENU GŁÓWNE     ║\n";
@@ -762,6 +827,7 @@ void showMenu() {
     cout << "4. Faktoryzacja LU i wyznacznik\n";
     cout << "5. Testy dla wszystkich operacji\n";
     cout << "6. Wykresy zależności operacji od rozmiaru macierzy\n";
+    cout << "7. Benchmark (1..1000)\n";
     cout << "0. Wyjście\n";
     cout << "\nWybierz opcję: ";
 }
@@ -863,6 +929,9 @@ int main() {
                 break;
             case 6:
                 generatePlots();
+                break;
+            case 7:
+                benchmarkAllSizes();
                 break;
             default:
                 cout << "Nieprawidłowa opcja!\n";
