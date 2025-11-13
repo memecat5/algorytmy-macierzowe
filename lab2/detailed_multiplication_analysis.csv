@@ -1,0 +1,3 @@
+n,classic_add,classic_mul,classic_div,recursive_add,recursive_mul,recursive_div,strassen_add,strassen_mul,strassen_div
+4,48,64,0,48,64,0,48,64,0
+8,448,512,0,448,512,0,448,512,0
