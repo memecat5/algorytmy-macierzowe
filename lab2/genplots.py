@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # Use a clean style
 plt.style.use("seaborn-v0_8-whitegrid")
 
-# === 1️⃣ Multiplication comparison ===
+# === Multiplication comparison ===
 def plot_multiplication_comparison(csv_file="multiplication_comparison.csv"):
     try:
         df = pd.read_csv(csv_file)
@@ -42,7 +42,7 @@ def plot_multiplication_comparison(csv_file="multiplication_comparison.csv"):
     plt.show()
 
 
-# === 2️⃣ All operations comparison ===
+# === All operations comparison ===
 def plot_all_operations(csv_file="all_operations_comparison.csv"):
     try:
         df = pd.read_csv(csv_file)
@@ -52,7 +52,7 @@ def plot_all_operations(csv_file="all_operations_comparison.csv"):
     n = df["n"]
 
     plt.figure(figsize=(10, 6))
-    plt.plot(n, df["multiply_ops"], "o-b", label="Multiplication (Strassen)")
+    # plt.plot(n, df["multiply_ops"], "o-b", label="Multiplication (Strassen)")
     plt.plot(n, df["invert_ops"], "s-g", label="Inversion")
     plt.plot(n, df["gauss_ops"], "^r", label="Gaussian Elimination")
     plt.plot(n, df["lu_ops"], "d-m", label="LU + Determinant")
@@ -66,7 +66,7 @@ def plot_all_operations(csv_file="all_operations_comparison.csv"):
     plt.show()
 
 
-# === 3️⃣ Detailed multiplication breakdown ===
+# === Detailed multiplication breakdown ===
 def plot_detailed_multiplication(csv_file="detailed_multiplication_analysis.csv"):
     try:
         df = pd.read_csv(csv_file)
@@ -112,11 +112,66 @@ def plot_detailed_multiplication(csv_file="detailed_multiplication_analysis.csv"
     plt.savefig("detailed_multiplication_analysis_plot.png", dpi=200)
     plt.show()
 
+def plot_benchmarks(csv_files = ["inversion_benchmark.csv", "gauss_benchmark.csv", "lu_benchmark.csv"]):
+    # ======== INVERSION ========
+    try:
+        df_inv = pd.read_csv(csv_files[0])
+        df_gauss = pd.read_csv(csv_files[1])
+        df_lu = pd.read_csv(csv_files[2])
+    except FileNotFoundError:
+        print(f"Some of the files {csv_files} not found! Not making plot")
+        return
+    n = df_inv["n"]
+
+    plt.figure(figsize=(14, 8)) # time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec
+
+    plt.subplot(4, 1, 1)
+    plt.plot(n, df_inv["time_ms"], "o-b", label="Inversion")
+    plt.plot(n, df_gauss["time_ms"], "s-g", label="Gaussian Elimination")
+    plt.plot(n, df_lu["time_ms"], "^r", label="LU factorisation")
+    plt.xlabel("Matrix size (n)")
+    plt.ylabel("Time [ms]")
+    plt.title("Runtime per algorithm")
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(4, 1, 2)
+    plt.plot(n, df_inv["FLOPs"], "o-b", label="Inversion")
+    plt.plot(n, df_gauss["FLOPs"], "s-g", label="Gaussian Elimination")
+    plt.plot(n, df_lu["FLOPs"], "^r", label="LU factorisation")
+    plt.xlabel("Matrix size (n)")
+    plt.ylabel("Floating point operations")
+    plt.title("Total floating point operations per algorithm")
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(4, 1, 3)
+    plt.plot(n, df_inv["peak_memory_MB"], "o-b", label="Inversion")
+    plt.plot(n, df_gauss["peak_memory_MB"], "s-g", label="Gaussian Elimination")
+    plt.plot(n, df_lu["peak_memory_MB"], "^r", label="LU factorisation")
+    plt.xlabel("Matrix size (n)")
+    plt.ylabel("Memory usage")
+    plt.title("Memory usage per algorithm")
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(4, 1, 4)
+    plt.plot(n, df_inv["FLOPs_per_sec"], "o-b", label="Inversion")
+    plt.plot(n, df_gauss["FLOPs_per_sec"], "s-g", label="Gaussian Elimination")
+    plt.plot(n, df_lu["FLOPs_per_sec"], "^r", label="LU factorisation")
+    plt.xlabel("Matrix size (n)")
+    plt.ylabel("FLOPS")
+    plt.title("FLOPS per algorithm")
+    plt.legend()
+    plt.grid()
+
+
+
 
 # === Run all ===
 if __name__ == "__main__":
     print("Generating all plots...")
-    plot_multiplication_comparison()
+    # plot_multiplication_comparison()
     plot_all_operations()
-    plot_detailed_multiplication()
+    # plot_detailed_multiplication()
     print("Plots saved as PNG files.")
