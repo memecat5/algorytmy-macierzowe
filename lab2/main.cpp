@@ -12,288 +12,211 @@
     #include <unistd.h>
 #endif
 #include <vector>
+#include "binet.hpp"
 
 using namespace std;
 
-// Struktura do przechowywania macierzy i licznika operacji
-struct Matrix {
-    vector<vector<double>> data;
-    int n;
-    
-    Matrix(int size) : n(size), data(size, vector<double>(size, 0.0)) {}
-    
-    void print(const string& name = "") const {
-        if (!name.empty()) cout << name << ":\n";
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                cout << setw(12) << fixed << setprecision(6) << data[i][j] << " ";
-            }
-            cout << "\n";
-        }
-        cout << "\n";
-    }
-};
-
-// Licznik operacji zmiennoprzecinkowych
-struct OpCounter {
-    long long additions = 0;
-    long long multiplications = 0;
-    long long divisions = 0;
-    
-    void reset() {
-        additions = multiplications = divisions = 0;
-    }
-    
-    long long total() const {
-        return additions + multiplications + divisions;
-    }
-    
-    void print(const string& operation) const {
-        cout << "=== Statystyki operacji dla: " << operation << " ===\n";
-        cout << "Dodawania/odejmowania: " << additions << "\n";
-        cout << "Mnożenia: " << multiplications << "\n";
-        cout << "Dzielenia: " << divisions << "\n";
-        cout << "Razem: " << total() << "\n\n";
-    }
-};
-
-// 1. GENEROWANIE LOSOWYCH MACIERZY
+// Helper: build random matrix with fixed seed for reproducibility
 Matrix generateRandomMatrix(int n) {
-    Matrix m(n);
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<double> dis(1e-8, 1.0);
-    
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            m.data[i][j] = dis(gen);
+    std::mt19937 rng(314159);
+    std::uniform_real_distribution<double> dist(-2.0, 2.0);
+
+    Matrix M(n, n);
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            M.data[i][j] = dist(rng);
+    return M;
+}
+
+void splitMatrix(const Matrix& A, Matrix& A11, Matrix& A12, Matrix& A21, Matrix& A22) {
+    int k = A11.rows; // lub A11.cols
+    int m = A22.rows; // lub A22.cols
+
+    for (int i = 0; i < k; ++i) {
+        for (int j = 0; j < k; ++j) {
+            A11.data[i][j] = A.data[i][j];
+        }
+        for (int j = 0; j < m; ++j) {
+            A12.data[i][j] = A.data[i][j + k];
         }
     }
-    
-    return m;
-}
-
-// Funkcja pomocnicza - kopiowanie fragmentu macierzy
-void copySubmatrix(const Matrix& src, Matrix& dst, 
-                   int srcRow, int srcCol, int dstRow, int dstCol, int size) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            dst.data[dstRow + i][dstCol + j] = src.data[srcRow + i][srcCol + j];
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < k; ++j) {
+            A21.data[i][j] = A.data[i + k][j];
+        }
+        for (int j = 0; j < m; ++j) {
+            A22.data[i][j] = A.data[i + k][j + k];
         }
     }
 }
 
-// MNOŻENIE MACIERZY - KLASYCZNE O(n^3)
-Matrix multiplyMatrices(const Matrix& A, const Matrix& B, OpCounter& counter) {
-    int n = A.n;
-    Matrix C(n);
-    
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            C.data[i][j] = 0.0;
-            for (int k = 0; k < n; k++) {
-                C.data[i][j] += A.data[i][k] * B.data[k][j];
-                counter.multiplications++;
-                if (k > 0) counter.additions++;
-            }
+/**
+ * Funkcja pomocnicza: Łączy 4 bloki w B
+ * B11 (k x k), B12 (k x m), B21 (m x k), B22 (m x m)
+ */
+void joinMatrix(Matrix& B, const Matrix& B11, const Matrix& B12, const Matrix& B21, const Matrix& B22) {
+    int k = B11.rows; // lub B11.cols
+    int m = B22.rows; // lub B22.cols
+
+    for (int i = 0; i < k; ++i) {
+        for (int j = 0; j < k; ++j) {
+            B.data[i][j] = B11.data[i][j];
+        }
+        for (int j = 0; j < m; ++j) {
+            B.data[i][j + k] = B12.data[i][j];
         }
     }
-    
-    return C;
-}
-
-// MNOŻENIE MACIERZY - REKURENCYJNE O(n^3)
-Matrix multiplyRecursive(const Matrix& A, const Matrix& B, OpCounter& counter, int threshold = 32);
-
-// Dodawanie macierzy
-Matrix addMatrices(const Matrix& A, const Matrix& B, OpCounter& counter) {
-    int n = A.n;
-    Matrix C(n);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            C.data[i][j] = A.data[i][j] + B.data[i][j];
-            counter.additions++;
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < k; ++j) {
+            B.data[i + k][j] = B21.data[i][j];
+        }
+        for (int j = 0; j < m; ++j) {
+            B.data[i + k][j + k] = B22.data[i][j];
         }
     }
-    return C;
 }
 
-// Odejmowanie macierzy
-Matrix subtractMatrices(const Matrix& A, const Matrix& B, OpCounter& counter) {
-    int n = A.n;
-    Matrix C(n);
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            C.data[i][j] = A.data[i][j] - B.data[i][j];
-            counter.additions++;
+Matrix invertMatrixRecursive(const Matrix& A, OpCounter& counter) {
+    if (A.rows != A.cols) {
+        throw std::runtime_error("Macierz nie jest kwadratowa.");
+    }
+    if (A.rows == 0) return Matrix(0, 0);
+
+    // BAZA REKURENCJI
+    if (A.rows == 1) {
+        Matrix B(1, 1);
+        if (std::fabs(A.data[0][0]) < 1e-12) {
+            throw std::runtime_error("Dzielenie przez zero: Macierz osobliwa.");
         }
+        B.data[0][0] = 1.0 / A.data[0][0];
+        ++counter.divisions;
+        return B;
     }
-    return C;
-}
+    
+    // 1. PODZIAŁ
+    int n = A.rows;
+    int k = n / 2;    // Rozmiar A11 (podłoga)
+    int m = n - k;    // Rozmiar A22 (sufit)
 
-Matrix multiplyRecursive(const Matrix& A, const Matrix& B, OpCounter& counter, int threshold) {
-    int n = A.n;
-    
-    // Przypadek bazowy - użyj klasycznego algorytmu dla małych macierzy
-    if (n <= threshold) {
-        return multiplyMatrices(A, B, counter);
-    }
-    
-    // Podział macierzy na ćwiartki
-    int half = n / 2;
-    
-    Matrix A11(half), A12(half), A21(half), A22(half);
-    Matrix B11(half), B12(half), B21(half), B22(half);
-    
-    // Kopiowanie bloków
-    copySubmatrix(A, A11, 0, 0, 0, 0, half);
-    copySubmatrix(A, A12, 0, half, 0, 0, half);
-    copySubmatrix(A, A21, half, 0, 0, 0, half);
-    copySubmatrix(A, A22, half, half, 0, 0, half);
-    
-    copySubmatrix(B, B11, 0, 0, 0, 0, half);
-    copySubmatrix(B, B12, 0, half, 0, 0, half);
-    copySubmatrix(B, B21, half, 0, 0, 0, half);
-    copySubmatrix(B, B22, half, half, 0, 0, half);
-    
-    // Rekurencyjne mnożenie: 8 wywołań
-    Matrix C11_1 = multiplyRecursive(A11, B11, counter, threshold);
-    Matrix C11_2 = multiplyRecursive(A12, B21, counter, threshold);
-    Matrix C11 = addMatrices(C11_1, C11_2, counter);
-    
-    Matrix C12_1 = multiplyRecursive(A11, B12, counter, threshold);
-    Matrix C12_2 = multiplyRecursive(A12, B22, counter, threshold);
-    Matrix C12 = addMatrices(C12_1, C12_2, counter);
-    
-    Matrix C21_1 = multiplyRecursive(A21, B11, counter, threshold);
-    Matrix C21_2 = multiplyRecursive(A22, B21, counter, threshold);
-    Matrix C21 = addMatrices(C21_1, C21_2, counter);
-    
-    Matrix C22_1 = multiplyRecursive(A21, B12, counter, threshold);
-    Matrix C22_2 = multiplyRecursive(A22, B22, counter, threshold);
-    Matrix C22 = addMatrices(C22_1, C22_2, counter);
-    
-    // Składanie wyniku
-    Matrix C(n);
-    copySubmatrix(C11, C, 0, 0, 0, 0, half);
-    copySubmatrix(C12, C, 0, 0, 0, half, half);
-    copySubmatrix(C21, C, 0, 0, half, 0, half);
-    copySubmatrix(C22, C, 0, 0, half, half, half);
-    
-    return C;
-}
+    Matrix A11(k, k), A12(k, m), A21(m, k), A22(m, m);
+    splitMatrix(A, A11, A12, A21, A22);
 
-// 2. REKURENCYJNE ODWRACANIE MACIERZY
-Matrix invertMatrixRecursive(const Matrix& m, OpCounter& counter) {
-    int n = m.n;
+    // 2. REKURENCJA
     
-    if (n == 1) {
-        Matrix inv(1);
-        inv.data[0][0] = 1.0 / m.data[0][0];
-        counter.divisions++;
-        return inv;
-    }
-    
-    int half = n / 2;
-    int remainder = n - half;
-    
-    Matrix A(half), B(half), C(remainder), D(remainder);
-    
-    copySubmatrix(m, A, 0, 0, 0, 0, half);
-    copySubmatrix(m, B, 0, half, 0, 0, half);
-    copySubmatrix(m, C, half, 0, 0, 0, remainder);
-    copySubmatrix(m, D, half, half, 0, 0, remainder);
-    
-    Matrix A_inv = invertMatrixRecursive(A, counter);
-    Matrix CA_inv = multiplyMatrices(C, A_inv, counter);
-    Matrix CA_invB = multiplyMatrices(CA_inv, B, counter);
-    Matrix S = subtractMatrices(D, CA_invB, counter);
+    // Oblicz A11_inv = A11^{-1}
+    Matrix A11_inv = invertMatrixRecursive(A11, counter);
+
+    // Oblicz S = A22 - A21 * A11_inv * A12
+    Matrix S_tmp = multiplyBinet(A21, A11_inv, counter);
+    Matrix S = A22 - multiplyBinet(S_tmp, A12, counter);
+
+    // Oblicz S_inv = S^{-1}
     Matrix S_inv = invertMatrixRecursive(S, counter);
-    
-    Matrix result(n);
-    Matrix A_invB = multiplyMatrices(A_inv, B, counter);
-    Matrix S_invC = multiplyMatrices(S_inv, C, counter);
-    Matrix A_invB_S_inv = multiplyMatrices(A_invB, S_inv, counter);
-    Matrix S_invC_A_inv = multiplyMatrices(S_invC, A_inv, counter);
-    Matrix temp = multiplyMatrices(A_invB_S_inv, S_invC_A_inv, counter);
-    
-    for (int i = 0; i < half; i++) {
-        for (int j = 0; j < half; j++) {
-            result.data[i][j] = A_inv.data[i][j] + temp.data[i][j];
-            counter.additions++;
-        }
-    }
-    
-    Matrix minusA_invB_S_inv(half);
-    for (int i = 0; i < half; i++) {
-        for (int j = 0; j < remainder; j++) {
-            minusA_invB_S_inv.data[i][j] = -A_invB_S_inv.data[i][j];
-        }
-    }
-    copySubmatrix(minusA_invB_S_inv, result, 0, 0, 0, half, half);
-    
-    Matrix minusS_invC_A_inv(remainder);
-    for (int i = 0; i < remainder; i++) {
-        for (int j = 0; j < half; j++) {
-            minusS_invC_A_inv.data[i][j] = -S_invC_A_inv.data[i][j];
-        }
-    }
-    copySubmatrix(minusS_invC_A_inv, result, 0, 0, half, 0, remainder);
-    copySubmatrix(S_inv, result, 0, 0, half, half, remainder);
-    
-    return result;
+
+    // Teraz mamy A11_inv i S_inv. Obliczamy bloki B.
+    // B22 = S_inv
+    Matrix B22 = S_inv;
+
+    // B12 = -A11_inv * A12 * B22
+    Matrix B12_tmp = multiplyBinet(A11_inv, A12, counter);
+    Matrix B12 = multiplyBinet(B12_tmp, B22, counter) * -1.0;
+
+    // B21 = -B22 * A21 * A11_inv
+    Matrix B21_tmp = multiplyBinet(B22, A21, counter);
+    Matrix B21 = multiplyBinet(B21_tmp, A11_inv, counter) * -1.0;
+
+    // B11 = A11_inv - (A11_inv * A12 * B21)
+    Matrix B11_tmp = multiplyBinet(A11_inv, A12, counter);
+    Matrix B11 = A11_inv - multiplyBinet(B11_tmp, B21, counter);
+
+    // 3. POŁĄCZENIE
+    Matrix B(n, n);
+    joinMatrix(B, B11, B12, B21, B22);
+
+    return B;
 }
 
-// 3. REKURENCYJNA ELIMINACJA GAUSSA
-void gaussEliminationRecursive(Matrix& m, Matrix& b, int start, int end, OpCounter& counter) {
-    if (start >= end) return;
-    
-    int n = end - start;
-    if (n == 1) return;
-    
-    for (int i = start + 1; i <= end; i++) {
-        if (fabs(m.data[start][start]) < 1e-12) {
-            throw runtime_error("Dzielenie przez zero w eliminacji Gaussa");
-        }
-        
-        double factor = m.data[i][start] / m.data[start][start];
-        counter.divisions++;
-        
-        for (int j = start; j <= end; j++) {
-            m.data[i][j] -= factor * m.data[start][j];
-            counter.multiplications++;
-            counter.additions++;
-        }
-        
-        for (int j = 0; j < b.n; j++) {
-            b.data[i][j] -= factor * b.data[start][j];
-            counter.multiplications++;
-            counter.additions++;
-        }
+/**
+ * 4. NOWE: Funkcje pomocnicze do dzielenia/łączenia WEKTORÓW
+ * (Wektory traktujemy jako macierze n x 1)
+ */
+void splitVector(const Matrix& v, Matrix& v1, Matrix& v2) {
+    int k = v1.rows; // Rozmiar v1
+    int m = v2.rows; // Rozmiar v2
+    for (int i = 0; i < k; ++i) {
+        v1.data[i][0] = v.data[i][0];
     }
-    
-    gaussEliminationRecursive(m, b, start + 1, end, counter);
+    for (int i = 0; i < m; ++i) {
+        v2.data[i][0] = v.data[i + k][0];
+    }
 }
 
-Matrix solveGaussRecursive(Matrix m, Matrix b, OpCounter& counter) {
-    int n = m.n;
-    gaussEliminationRecursive(m, b, 0, n - 1, counter);
-    
-    Matrix x(n);
-    for (int i = n - 1; i >= 0; i--) {
-        for (int j = 0; j < b.n; j++) {
-            x.data[i][j] = b.data[i][j];
-            
-            for (int k = i + 1; k < n; k++) {
-                x.data[i][j] -= m.data[i][k] * x.data[k][j];
-                counter.multiplications++;
-                counter.additions++;
-            }
-            
-            x.data[i][j] /= m.data[i][i];
-            counter.divisions++;
-        }
+void joinVector(Matrix& v, const Matrix& v1, const Matrix& v2) {
+    int k = v1.rows;
+    int m = v2.rows;
+    for (int i = 0; i < k; ++i) {
+        v.data[i][0] = v1.data[i][0];
     }
+    for (int i = 0; i < m; ++i) {
+        v.data[i + k][0] = v2.data[i][0];
+    }
+}
+
+
+/**
+ * 5. NOWA GŁÓWNA FUNKCJA: Rekurencyjny blokowy solver Gaussa
+ * Rozwiązuje A*x = b
+ */
+Matrix solveGaussRecursive(const Matrix& A, const Matrix& b, OpCounter& counter) {
+    if (A.rows != A.cols) throw std::runtime_error("Macierz A nie jest kwadratowa.");
+    if (A.rows != b.rows || b.cols != 1) throw std::runtime_error("Niezgodne wymiary A i b.");
+
+    int n = A.rows;
+    if (n == 0) return Matrix(0, 1);
+
+    // BAZA REKURENCJI (n = 1)
+    if (n == 1) {
+        if (std::fabs(A.data[0][0]) < 1e-12) throw std::runtime_error("Dzielenie przez zero.");
+        Matrix x(1, 1);
+        x.data[0][0] = b.data[0][0] / A.data[0][0];
+        return x;
+    }
+
+    // 1. PODZIAŁ
+    int k = n / 2;
+    int m = n - k;
+
+    // Podział A
+    Matrix A11(k, k), A12(k, m), A21(m, k), A22(m, m);
+    splitMatrix(A, A11, A12, A21, A22);
+
+    // Podział b
+    Matrix b1(k, 1), b2(m, 1);
+    splitVector(b, b1, b2);
+
+    // 2. OBLICZENIA (Kroki eliminacji)
+    
+    // Potrzebujemy A11_inv do obliczenia S i b2'
+    Matrix A11_inv = invertMatrixRecursive(A11, counter);
+
+    // Oblicz S = A22 - A21 * A11_inv * A12
+    Matrix S = A22 - multiplyBinet(multiplyBinet(A21, A11_inv, counter), A12, counter);
+
+    // Oblicz b2' = b2 - A21 * A11_inv * b1
+    Matrix b2_prime = b2 - multiplyBinet(multiplyBinet(A21, A11_inv, counter), b1, counter);
+
+    // 3. REKURENCJA (Rządzenie)
+
+    // Krok 1: Rozwiąż S * x2 = b2'
+    Matrix x2 = solveGaussRecursive(S, b2_prime, counter);
+
+    // Krok 2: Rozwiąż A11 * x1 = b1' (gdzie b1' = b1 - A12 * x2)
+    Matrix b1_prime = b1 - multiplyBinet(A12, x2, counter);
+    Matrix x1 = solveGaussRecursive(A11, b1_prime, counter);
+
+    // 4. POŁĄCZENIE
+    Matrix x(n, 1);
+    joinVector(x, x1, x2);
     
     return x;
 }
@@ -326,7 +249,7 @@ void luDecompositionRecursive(Matrix& m, int start, int end, OpCounter& counter)
 
 double computeDeterminantFromLU(const Matrix& lu, OpCounter& counter) {
     double det = 1.0;
-    for (int i = 0; i < lu.n; i++) {
+    for (int i = 0; i < lu.rows; i++) {
         det *= lu.data[i][i];
         counter.multiplications++;
     }
@@ -348,7 +271,7 @@ void testInversion(int n) {
     counter.print("Odwracanie macierzy");
     
     OpCounter verifyCounter;
-    Matrix identity = multiplyMatrices(m, inv, verifyCounter);
+    Matrix identity = multiplyBinet(m, inv, verifyCounter);
     
     double error = 0.0;
     for (int i = 0; i < n; i++) {
@@ -357,7 +280,7 @@ void testInversion(int n) {
             error += fabs(identity.data[i][j] - expected);
         }
     }
-    cout << "Błąd weryfikacji: " << error << "\n";
+    cout << "Blad weryfikacji: " << error << "\n";
 }
 
 void testGaussElimination(int n) {
@@ -366,7 +289,7 @@ void testGaussElimination(int n) {
     cout << "======================================\n";
     
     Matrix A = generateRandomMatrix(n);
-    Matrix b(n);
+    Matrix b(n, 1);
     for (int i = 0; i < n; i++) {
         b.data[i][0] = 1.0;
     }
@@ -481,59 +404,120 @@ double getMemoryUsageMB() {
 #endif
 }
 
-// Benchmark: test multiplication for n = 1..maxN
-void benchmarkAllSizes(int maxN = 1000) {
-    cout << "\n============================================\n";
-    cout << " BENCHMARK: MATRIX MULTIPLICATION (1.." << maxN << ")\n";
-    cout << "============================================\n";
+void benchmarkInversion(int maxN);
+void benchmarkGauss(int maxN);
+void benchmarkLUdecomposition(int maxN);
 
-    ofstream file("matrix_benchmark.csv");
-    file << "n,time_ms,FLOPs,memory_MB,peak_memory_MB,FLOPs_per_sec\n";
+// Benchmark: test all operations for n = 1..maxN
+void benchmarkAllSizes(int maxN = 5) {
+    cout << "\n"
+         << "============================================\n"
+         << " BENCHMARK: (1.." << maxN << ")\n"
+         << "============================================\n";
+
+    benchmarkInversion(maxN);
+    benchmarkGauss(maxN);
+    benchmarkLUdecomposition(maxN);
+
+    cout << "Benchmark completed, results saved to corresponding csv files\n";
+
+}
+
+void benchmarkInversion(int maxN){
+    ofstream file("inversion_benchmark.csv");
+    file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
 
     for (int n = 1; n <= maxN; n++) {
         Matrix A = generateRandomMatrix(n);
-        Matrix B = generateRandomMatrix(n);
-
-        // Theoretical FLOPs for classic O(n³) multiplication
-        double flops = 2.0 * pow(n, 3); // n³ multiplications + n³ additions
-
-        // Estimate memory used by A, B, and result C (3 * n² doubles)
-        double memoryUsageMB = (3.0 * n * n * sizeof(double)) / (1024.0 * 1024.0);
 
         OpCounter counter;
         auto mem_before = getMemoryUsageMB();
         auto start = chrono::high_resolution_clock::now();
 
-        Matrix C = multiplyMatrices(A, B, counter);
+        Matrix C = invertMatrixRecursive(A, counter);
 
         auto end = chrono::high_resolution_clock::now();
         auto mem_after = getMemoryUsageMB();
         double time_ms = chrono::duration_cast<chrono::microseconds>(end - start).count() / 1000.0;
 
-        double peakMem = max(mem_before, mem_after);
-        double flopsPerSec = (flops / (time_ms / 1000.0));
+        double peakMem = max(mem_before, mem_after);    // chyba tylko mem after?
+        double flopsPerSec = (counter.total() / (time_ms / 1000.0));
 
         file << n << ","
              << time_ms << ","
-             << flops << ","
-             << memoryUsageMB << ","
+             << counter.total() << ","
              << peakMem << ","
              << flopsPerSec << "\n";
-
-        if (n % 100 == 0 || n == 1 || n == maxN) {
-            cout << setw(5) << n
-                 << " | time=" << setw(8) << fixed << setprecision(4) << time_ms << " ms"
-                 << " | mem=" << setw(7) << setprecision(3) << memoryUsageMB << " MB"
-                 << " | FLOPs/s=" << scientific << flopsPerSec << fixed << "\n";
-        }
     }
 
     file.close();
-    cout << "\nBenchmark completed. Results saved to 'matrix_benchmark.csv'\n";
 }
 
+void benchmarkGauss(int maxN){
+    ofstream file("gauss_benchmark.csv");
+    file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
+
+    for (int n = 1; n <= maxN; n++) {
+        Matrix A = generateRandomMatrix(n);
+        Matrix B = generateRandomMatrix(n);
+
+        OpCounter counter;
+        auto mem_before = getMemoryUsageMB();
+        auto start = chrono::high_resolution_clock::now();
+
+        Matrix C = solveGaussRecursive(A, B, counter);
+
+        auto end = chrono::high_resolution_clock::now();
+        auto mem_after = getMemoryUsageMB();
+        double time_ms = chrono::duration_cast<chrono::microseconds>(end - start).count() / 1000.0;
+
+        double peakMem = max(mem_before, mem_after);    // chyba tylko mem after?
+        double flopsPerSec = (counter.total() / (time_ms / 1000.0));
+
+        file << n << ","
+             << time_ms << ","
+             << counter.total() << ","
+             << peakMem << ","
+             << flopsPerSec << "\n";
+    }
+
+    file.close();
+}
+
+void benchmarkLUdecomposition(int maxN){
+    ofstream file("lu_benchmark.csv");
+    file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
+
+    for (int n = 1; n <= maxN; n++) {
+        Matrix A = generateRandomMatrix(n);
+
+        OpCounter counter;
+        auto mem_before = getMemoryUsageMB();
+        auto start = chrono::high_resolution_clock::now();
+
+        Matrix C = computeDeterminantFromLU(A, counter);
+
+        auto end = chrono::high_resolution_clock::now();
+        auto mem_after = getMemoryUsageMB();
+        double time_ms = chrono::duration_cast<chrono::microseconds>(end - start).count() / 1000.0;
+
+        double peakMem = max(mem_before, mem_after);    // chyba tylko mem after?
+        double flopsPerSec = (counter.total() / (time_ms / 1000.0));
+
+        file << n << ","
+             << time_ms << ","
+             << counter.total() << ","
+             << peakMem << ","
+             << flopsPerSec << "\n";
+    }
+
+    file.close();
+}
+
+
 void showMenu() {
-    cout << "\n╔════════════════════════════════════════════╗\n";
+    cout << "\n"
+         << "╔════════════════════════════════════════════╗\n";
     cout << "║   OPERACJE NA MACIERZACH - MENU GŁÓWNE     ║\n";
     cout << "╚════════════════════════════════════════════╝\n";
     cout << "1. Porównanie algorytmów mnożenia macierzy\n";
