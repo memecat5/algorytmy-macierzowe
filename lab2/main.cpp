@@ -7,8 +7,10 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
-#include <sys/resource.h>  // for memory usage (Linux/macOS)
-#include <unistd.h>
+#ifndef _WIN32
+    #include <sys/resource.h>  // for memory usage (Linux/macOS)
+    #include <unistd.h>
+#endif
 #include <vector>
 
 using namespace std;
@@ -757,12 +759,16 @@ void plotDetailedMultiplication(const vector<int>& sizes) {
 
 // Helper: get current memory usage in MB
 double getMemoryUsageMB() {
-    struct rusage usage{};
-    getrusage(RUSAGE_SELF, &usage);
-#ifdef __APPLE__
-    return usage.ru_maxrss / (1024.0 * 1024.0);
+#ifndef _WIN32
+        struct rusage usage{};
+        getrusage(RUSAGE_SELF, &usage);
+    #ifdef __APPLE__
+        return usage.ru_maxrss / (1024.0 * 1024.0);
+    #else
+        return usage.ru_maxrss / 1024.0;  // Linux returns kB
+    #endif
 #else
-    return usage.ru_maxrss / 1024.0;  // Linux returns kB
+    return 0;
 #endif
 }
 
