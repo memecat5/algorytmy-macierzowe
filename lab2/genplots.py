@@ -175,5 +175,6 @@ if __name__ == "__main__":
     print("Generating all plots...")
     # plot_multiplication_comparison()
     plot_all_operations()
+    plot_benchmarks()
     # plot_detailed_multiplication()
     print("Plots saved as PNG files.")
