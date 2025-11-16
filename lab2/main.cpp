@@ -179,6 +179,7 @@ Matrix solveGaussRecursive(const Matrix& A, const Matrix& b, OpCounter& counter)
         if (std::fabs(A.data[0][0]) < 1e-12) throw std::runtime_error("Dzielenie przez zero.");
         Matrix x(1, 1);
         x.data[0][0] = b.data[0][0] / A.data[0][0];
+        ++counter.divisions;
         return x;
     }
 
@@ -221,37 +222,136 @@ Matrix solveGaussRecursive(const Matrix& A, const Matrix& b, OpCounter& counter)
     return x;
 }
 
-// 4. REKURENCYJNA FAKTORYZACJA LU
-void luDecompositionRecursive(Matrix& m, int start, int end, OpCounter& counter) {
-    if (start >= end) return;
-    
-    int n = end - start + 1;
-    if (n == 1) return;
-    
-    for (int i = start + 1; i <= end; i++) {
-        if (fabs(m.data[start][start]) < 1e-12) {
-            throw runtime_error("Dzielenie przez zero w faktoryzacji LU");
-        }
-        m.data[i][start] /= m.data[start][start];
-        counter.divisions++;
-    }
-    
-    for (int i = start + 1; i <= end; i++) {
-        for (int j = start + 1; j <= end; j++) {
-            m.data[i][j] -= m.data[i][start] * m.data[start][j];
-            counter.multiplications++;
-            counter.additions++;
+/**
+ * Funkcja pomocnicza: Kopiuje blok 'source' do 'target' z offsetem
+ */
+void copyBlock(Matrix& target, const Matrix& source, int row_offset, int col_offset) {
+    for (int i = 0; i < source.rows; ++i) {
+        for (int j = 0; j < source.cols; ++j) {
+            target.data[i + row_offset][j + col_offset] = source.data[i][j];
         }
     }
-    
-    luDecompositionRecursive(m, start + 1, end, counter);
 }
 
-double computeDeterminantFromLU(const Matrix& lu, OpCounter& counter) {
-    double det = 1.0;
-    for (int i = 0; i < lu.rows; i++) {
-        det *= lu.data[i][i];
-        counter.multiplications++;
+/**
+ * 1. NOWY HELPER: Rozwiązuje LX = B (dla kroku U12)
+ * L jest dolnotrójkątna (z 1 na diagonali), B ma k kolumn
+ */
+Matrix solveL(const Matrix& L, const Matrix& B, OpCounter& counter) {
+    int n = L.rows;
+    int k = B.cols;
+    Matrix X(n, k);
+
+    for (int j = 0; j < k; ++j) { // Dla każdej kolumny B
+        for (int i = 0; i < n; ++i) { // Podstawienie w przód
+            double sum = 0.0;
+            for (int p = 0; p < i; ++p) {
+                sum += L.data[i][p] * X.data[p][j];
+                ++counter.additions;
+            }
+            // L.data[i][i] to 1.0 (zgodnie z Doolittle)
+            X.data[i][j] = (B.data[i][j] - sum);
+            ++counter.additions;
+        }
+    }
+    return X;
+}
+
+/**
+ * 2. NOWY HELPER: Rozwiązuje XU = B (dla kroku L21)
+ * U jest górnotrójkątna, B ma k wierszy
+ */
+Matrix solveU_T(const Matrix& U, const Matrix& B, OpCounter& counter) {
+    int n = U.cols;
+    int k = B.rows;
+    Matrix X(k, n);
+
+    for (int i = 0; i < k; ++i) { // Dla każdego wiersza B
+        for (int j = n - 1; j >= 0; --j) { // Podstawienie wsteczne (wierszowe)
+            double sum = 0.0;
+            for (int p = j + 1; p < n; ++p) {
+                sum += X.data[i][p] * U.data[p][j];
+                ++counter.additions;
+            }
+            if (std::fabs(U.data[j][j]) < 1e-12) {
+                throw std::runtime_error("Dzielenie przez zero w solveU_T");
+            }
+            X.data[i][j] = (B.data[i][j] - sum) / U.data[j][j];
+            ++counter.additions;
+            ++counter.divisions;
+        }
+    }
+    return X;
+}
+
+/**
+ * GŁÓWNA FUNKCJA: Rekurencyjna blokowa faktoryzacja LU
+ * Zwraca parę {L, U}
+ */
+std::pair<Matrix, Matrix> blockLU(const Matrix& A, OpCounter& counter) {
+    if (A.rows != A.cols) {
+        throw std::runtime_error("Macierz nie jest kwadratowa.");
+    }
+
+    int n = A.rows;
+    Matrix L(n, n);
+    Matrix U(n, n);
+
+    // BAZA REKURENCJI (n = 1) - Rozkład Doolittle'a
+    if (n == 1) {
+        if (std::fabs(A.data[0][0]) < 1e-12) {
+             // Zwykle tutaj robimy pivoting, ale w tym algorytmie...
+            throw std::runtime_error("Element [0][0] jest zerowy. Wymagany pivoting.");
+        }
+        L.data[0][0] = 1.0;
+        U.data[0][0] = A.data[0][0];
+        return {L, U};
+    }
+
+    // 1. PODZIAŁ
+    int k = n / 2;
+    int m = n - k;
+    Matrix A11(k, k), A12(k, m), A21(m, k), A22(m, m);
+    splitMatrix(A, A11, A12, A21, A22);
+
+    // 2. REKURENCJA
+    
+    // Krok 1: A11 = L11 * U11
+    auto [L11, U11] = blockLU(A11, counter);
+
+    // Krok 2: U12 = L11^{-1} * A12
+    Matrix U12 = solveL(L11, A12, counter);
+
+    // Krok 3: L21 = A21 * U11^{-1}
+    Matrix L21 = solveU_T(U11, A21, counter);
+
+    // Krok 4: S = A22 - L21 * U12
+    Matrix S = A22 - multiplyBinet(L21, U12, counter);
+
+    // Krok 5: S = L22 * U22
+    auto [L22, U22] = blockLU(S, counter);
+
+    // 3. POŁĄCZENIE
+    // Złożenie macierzy L
+    copyBlock(L, L11, 0, 0);       // L[0:k, 0:k] = L11
+    copyBlock(L, L21, k, 0);       // L[k:n, 0:k] = L21
+    copyBlock(L, L22, k, k);       // L[k:n, k:n] = L22
+    // Blok L12 (górny prawy) pozostaje zerowy
+
+    // Złożenie macierzy U
+    copyBlock(U, U11, 0, 0);       // U[0:k, 0:k] = U11
+    copyBlock(U, U12, 0, k);       // U[0:k, k:n] = U12
+    copyBlock(U, U22, k, k);       // U[k:n, k:n] = U22
+    // Blok U21 (dolny lewy) pozostaje zerowy
+
+    return {L, U};
+}
+
+double detLU(const Matrix& A, OpCounter& counter){
+    auto [L, U] = blockLU(A, counter);
+    double det = 1.;
+    for(int i = 0; i < U.rows; ++i){
+        det *= U.data[i][i];
     }
     return det;
 }
@@ -318,8 +418,8 @@ void testLUFactorization(int n) {
     OpCounter counter;
     
     try {
-        luDecompositionRecursive(lu, 0, n - 1, counter);
-        double det = computeDeterminantFromLU(lu, counter);
+        blockLU(lu, counter);
+        double det = detLU(lu, counter);
         
         if (n <= 5) lu.print("Macierz LU");
         cout << "Wyznacznik: " << scientific << det << fixed << "\n";
@@ -367,8 +467,8 @@ void plotAllOperations(const vector<int>& sizes) {
         Matrix lu = A;
         OpCounter counter4;
         try {
-            luDecompositionRecursive(lu, 0, n - 1, counter4);
-            computeDeterminantFromLU(lu, counter4);
+            blockLU(lu, counter4);
+            detLU(lu, counter4);
             lu_ops.push_back(counter4.total());
         } catch (...) {
             lu_ops.push_back(0);
@@ -409,7 +509,7 @@ void benchmarkGauss(int maxN);
 void benchmarkLUdecomposition(int maxN);
 
 // Benchmark: test all operations for n = 1..maxN
-void benchmarkAllSizes(int maxN = 5) {
+void benchmarkAllSizes(int maxN = 1000) {
     cout << "\n"
          << "============================================\n"
          << " BENCHMARK: (1.." << maxN << ")\n"
@@ -459,7 +559,11 @@ void benchmarkGauss(int maxN){
 
     for (int n = 1; n <= maxN; n++) {
         Matrix A = generateRandomMatrix(n);
-        Matrix B = generateRandomMatrix(n);
+        Matrix B(n, 1);
+
+        for(int i=0; i<n; ++i){
+            B.data[i][0] = 1.;
+        }
 
         OpCounter counter;
         auto mem_before = getMemoryUsageMB();
@@ -495,7 +599,7 @@ void benchmarkLUdecomposition(int maxN){
         auto mem_before = getMemoryUsageMB();
         auto start = chrono::high_resolution_clock::now();
 
-        Matrix C = computeDeterminantFromLU(A, counter);
+        double det = detLU(A, counter);
 
         auto end = chrono::high_resolution_clock::now();
         auto mem_after = getMemoryUsageMB();
