@@ -10,6 +10,9 @@
 #ifndef _WIN32
     #include <sys/resource.h>  // for memory usage (Linux/macOS)
     #include <unistd.h>
+#else
+    #include <windows.h>
+    #include <psapi.h>
 #endif
 #include <vector>
 #include "binet.hpp"
@@ -504,34 +507,17 @@ double getMemoryUsageMB() {
         return usage.ru_maxrss / 1024.0;  // Linux returns kB
     #endif
 #else
-    return 0;
+    PROCESS_MEMORY_COUNTERS info;
+    GetProcessMemoryInfo(GetCurrentProcess(), &info, sizeof(info));
+    return static_cast<double>(info.WorkingSetSize) / (1024.0 * 1024.0);
 #endif
 }
 
-void benchmarkInversion(int maxN);
-void benchmarkGauss(int maxN);
-void benchmarkLUdecomposition(int maxN);
-
-// Benchmark: test all operations for n = 1..maxN
-void benchmarkAllSizes(int maxN = 1000) {
-    cout << "\n"
-         << "============================================\n"
-         << " BENCHMARK: (1.." << maxN << ")\n"
-         << "============================================\n";
-
-    benchmarkInversion(maxN);
-    benchmarkGauss(maxN);
-    benchmarkLUdecomposition(maxN);
-
-    cout << "Benchmark completed, results saved to corresponding csv files\n";
-
-}
-
-void benchmarkInversion(int maxN){
+void benchmarkInversion(int maxN, int step){
     ofstream file("inversion_benchmark.csv");
     file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
 
-    for (int n = 1; n <= maxN; n++) {
+    for (int n = 1; n <= maxN; n += step) {
         Matrix A = generateRandomMatrix(n);
 
         OpCounter counter;
@@ -557,11 +543,11 @@ void benchmarkInversion(int maxN){
     file.close();
 }
 
-void benchmarkGauss(int maxN){
+void benchmarkGauss(int maxN, int step){
     ofstream file("gauss_benchmark.csv");
     file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
 
-    for (int n = 1; n <= maxN; n++) {
+    for (int n = 1; n <= maxN; n += step) {
         Matrix A = generateRandomMatrix(n);
         Matrix B(n, 1);
 
@@ -592,11 +578,11 @@ void benchmarkGauss(int maxN){
     file.close();
 }
 
-void benchmarkLUdecomposition(int maxN){
+void benchmarkLUdecomposition(int maxN, int step){
     ofstream file("lu_benchmark.csv");
     file << "n,time_ms,FLOPs,peak_memory_MB,FLOPs_per_sec\n";
 
-    for (int n = 1; n <= maxN; n++) {
+    for (int n = 1; n <= maxN; n += step) {
         Matrix A = generateRandomMatrix(n);
 
         OpCounter counter;
@@ -620,6 +606,21 @@ void benchmarkLUdecomposition(int maxN){
     }
 
     file.close();
+}
+
+// Benchmark: test all operations for n = 1..maxN
+void benchmarkAllSizes(int maxN = 1000, int step = 10) {
+    cout << "\n"
+         << "============================================\n"
+         << " BENCHMARK: (1.." << maxN << ")\n"
+         << "============================================\n";
+
+    benchmarkInversion(maxN, step);
+    benchmarkGauss(maxN, step);
+    benchmarkLUdecomposition(maxN, step);
+
+    cout << "Benchmark completed, results saved to corresponding csv files\n";
+
 }
 
 
