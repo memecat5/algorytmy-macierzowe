@@ -183,117 +183,6 @@ Matrix multiplyRecursive(const Matrix& A, const Matrix& B, OpCounter& counter, i
     return C;
 }
 
-// MNOŻENIE MACIERZY - ALGORYTM STRASSENA O(n^2.807)
-Matrix multiplyStrassen(const Matrix& A, const Matrix& B, OpCounter& counter, int threshold = 32) {
-    int n = A.n;
-    
-    // Przypadek bazowy
-    if (n <= threshold) {
-        return multiplyMatrices(A, B, counter);
-    }
-    
-    // Podział macierzy na ćwiartki
-    int half = n / 2;
-    
-    Matrix A11(half), A12(half), A21(half), A22(half);
-    Matrix B11(half), B12(half), B21(half), B22(half);
-    
-    copySubmatrix(A, A11, 0, 0, 0, 0, half);
-    copySubmatrix(A, A12, 0, half, 0, 0, half);
-    copySubmatrix(A, A21, half, 0, 0, 0, half);
-    copySubmatrix(A, A22, half, half, 0, 0, half);
-    
-    copySubmatrix(B, B11, 0, 0, 0, 0, half);
-    copySubmatrix(B, B12, 0, half, 0, 0, half);
-    copySubmatrix(B, B21, half, 0, 0, 0, half);
-    copySubmatrix(B, B22, half, half, 0, 0, half);
-    
-    // 7 mnożeń Strassena (zamiast 8 w klasycznym)
-    
-    // M1 = (A11 + A22) * (B11 + B22)
-    Matrix M1 = multiplyStrassen(
-        addMatrices(A11, A22, counter),
-        addMatrices(B11, B22, counter),
-        counter, threshold
-    );
-    
-    // M2 = (A21 + A22) * B11
-    Matrix M2 = multiplyStrassen(
-        addMatrices(A21, A22, counter),
-        B11,
-        counter, threshold
-    );
-    
-    // M3 = A11 * (B12 - B22)
-    Matrix M3 = multiplyStrassen(
-        A11,
-        subtractMatrices(B12, B22, counter),
-        counter, threshold
-    );
-    
-    // M4 = A22 * (B21 - B11)
-    Matrix M4 = multiplyStrassen(
-        A22,
-        subtractMatrices(B21, B11, counter),
-        counter, threshold
-    );
-    
-    // M5 = (A11 + A12) * B22
-    Matrix M5 = multiplyStrassen(
-        addMatrices(A11, A12, counter),
-        B22,
-        counter, threshold
-    );
-    
-    // M6 = (A21 - A11) * (B11 + B12)
-    Matrix M6 = multiplyStrassen(
-        subtractMatrices(A21, A11, counter),
-        addMatrices(B11, B12, counter),
-        counter, threshold
-    );
-    
-    // M7 = (A12 - A22) * (B21 + B22)
-    Matrix M7 = multiplyStrassen(
-        subtractMatrices(A12, A22, counter),
-        addMatrices(B21, B22, counter),
-        counter, threshold
-    );
-    
-    // Obliczanie bloków wyniku
-    // C11 = M1 + M4 - M5 + M7
-    Matrix C11 = addMatrices(
-        subtractMatrices(
-            addMatrices(M1, M4, counter),
-            M5, counter
-        ),
-        M7, counter
-    );
-    
-    // C12 = M3 + M5
-    Matrix C12 = addMatrices(M3, M5, counter);
-    
-    // C21 = M2 + M4
-    Matrix C21 = addMatrices(M2, M4, counter);
-    
-    // C22 = M1 - M2 + M3 + M6
-    Matrix C22 = addMatrices(
-        addMatrices(
-            subtractMatrices(M1, M2, counter),
-            M3, counter
-        ),
-        M6, counter
-    );
-    
-    // Składanie wyniku
-    Matrix C(n);
-    copySubmatrix(C11, C, 0, 0, 0, 0, half);
-    copySubmatrix(C12, C, 0, 0, 0, half, half);
-    copySubmatrix(C21, C, 0, 0, half, 0, half);
-    copySubmatrix(C22, C, 0, 0, half, half, half);
-    
-    return C;
-}
-
 // 2. REKURENCYJNE ODWRACANIE MACIERZY
 Matrix invertMatrixRecursive(const Matrix& m, OpCounter& counter) {
     int n = m.n;
@@ -444,65 +333,6 @@ double computeDeterminantFromLU(const Matrix& lu, OpCounter& counter) {
     return det;
 }
 
-// FUNKCJE TESTOWE
-void testMultiplication(int n) {
-    cout << "\n==========================================\n";
-    cout << "PORÓWNANIE ALGORYTMÓW MNOŻENIA (n=" << n << ")\n";
-    cout << "==========================================\n";
-    
-    Matrix A = generateRandomMatrix(n);
-    Matrix B = generateRandomMatrix(n);
-    
-    if (n <= 4) {
-        A.print("Macierz A");
-        B.print("Macierz B");
-    }
-    
-    // Klasyczne mnożenie O(n^3)
-    OpCounter counter1;
-    auto start1 = chrono::high_resolution_clock::now();
-    Matrix C1 = multiplyMatrices(A, B, counter1);
-    auto end1 = chrono::high_resolution_clock::now();
-    auto duration1 = chrono::duration_cast<chrono::microseconds>(end1 - start1);
-    
-    if (n <= 4) C1.print("Wynik (klasyczne)");
-    cout << "--- Klasyczne mnożenie O(n^3) ---\n";
-    cout << "Czas: " << duration1.count() / 1000.0 << " ms\n";
-    counter1.print("Mnożenie klasyczne");
-    
-    // Rekurencyjne mnożenie O(n^3)
-    OpCounter counter2;
-    auto start2 = chrono::high_resolution_clock::now();
-    Matrix C2 = multiplyRecursive(A, B, counter2);
-    auto end2 = chrono::high_resolution_clock::now();
-    auto duration2 = chrono::duration_cast<chrono::microseconds>(end2 - start2);
-    
-    cout << "--- Rekurencyjne mnożenie O(n^3) ---\n";
-    cout << "Czas: " << duration2.count() / 1000.0 << " ms\n";
-    counter2.print("Mnożenie rekurencyjne");
-    
-    // Algorytm Strassena O(n^2.807)
-    OpCounter counter3;
-    auto start3 = chrono::high_resolution_clock::now();
-    Matrix C3 = multiplyStrassen(A, B, counter3);
-    auto end3 = chrono::high_resolution_clock::now();
-    auto duration3 = chrono::duration_cast<chrono::microseconds>(end3 - start3);
-    
-    if (n <= 4) C3.print("Wynik (Strassen)");
-    cout << "--- Algorytm Strassena O(n^2.807) ---\n";
-    cout << "Czas: " << duration3.count() / 1000.0 << " ms\n";
-    counter3.print("Algorytm Strassena");
-    
-    // Weryfikacja poprawności
-    double error = 0.0;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            error += fabs(C1.data[i][j] - C3.data[i][j]);
-        }
-    }
-    cout << "Różnica między klasycznym a Strassen: " << scientific << error << fixed << "\n";
-}
-
 void testInversion(int n) {
     cout << "\n======================================\n";
     cout << "TEST ODWRACANIA MACIERZY (n=" << n << ")\n";
@@ -576,67 +406,10 @@ void testLUFactorization(int n) {
     }
 }
 
-// Wykres porównujący algorytmy mnożenia
-void plotMultiplicationComparison(const vector<int>& sizes) {
-    vector<double> x_axis;
-    vector<double> classic_ops, recursive_ops, strassen_ops;
-    vector<double> classic_time, recursive_time, strassen_time;
-
-    cout << "\nGenerowanie danych...\n";
-
-    for (int n : sizes) {
-        cout << "Testowanie dla n = " << n << "..." << endl;
-        x_axis.push_back(n);
-
-        Matrix A = generateRandomMatrix(n);
-        Matrix B = generateRandomMatrix(n);
-
-        // Klasyczne
-        OpCounter counter1;
-        auto start1 = chrono::high_resolution_clock::now();
-        Matrix C1 = multiplyMatrices(A, B, counter1);
-        auto end1 = chrono::high_resolution_clock::now();
-        classic_ops.push_back(counter1.total());
-        classic_time.push_back(chrono::duration_cast<chrono::microseconds>(end1 - start1).count() / 1000.0);
-
-        // Rekurencyjne
-        OpCounter counter2;
-        auto start2 = chrono::high_resolution_clock::now();
-        Matrix C2 = multiplyRecursive(A, B, counter2);
-        auto end2 = chrono::high_resolution_clock::now();
-        recursive_ops.push_back(counter2.total());
-        recursive_time.push_back(chrono::duration_cast<chrono::microseconds>(end2 - start2).count() / 1000.0);
-
-        // Strassen
-        OpCounter counter3;
-        auto start3 = chrono::high_resolution_clock::now();
-        Matrix C3 = multiplyStrassen(A, B, counter3);
-        auto end3 = chrono::high_resolution_clock::now();
-        strassen_ops.push_back(counter3.total());
-        strassen_time.push_back(chrono::duration_cast<chrono::microseconds>(end3 - start3).count() / 1000.0);
-    }
-
-    // Zapis do CSV
-    ofstream file("multiplication_comparison.csv");
-    file << "n,classic_ops,recursive_ops,strassen_ops,classic_time_ms,recursive_time_ms,strassen_time_ms\n";
-    for (size_t i = 0; i < x_axis.size(); ++i) {
-        file << x_axis[i] << ","
-             << classic_ops[i] << ","
-             << recursive_ops[i] << ","
-             << strassen_ops[i] << ","
-             << classic_time[i] << ","
-             << recursive_time[i] << ","
-             << strassen_time[i] << "\n";
-    }
-    file.close();
-
-    cout << "\nDane zapisane do pliku 'multiplication_comparison.csv'\n";
-}
-
 // Wykres dla wszystkich operacji
 void plotAllOperations(const vector<int>& sizes) {
     vector<double> x_axis;
-    vector<double> multiply_ops, invert_ops, gauss_ops, lu_ops;
+    vector<double> invert_ops, gauss_ops, lu_ops;
 
     cout << "\nGenerowanie danych dla wszystkich operacji...\n";
 
@@ -646,11 +419,6 @@ void plotAllOperations(const vector<int>& sizes) {
 
         Matrix A = generateRandomMatrix(n);
         Matrix B = generateRandomMatrix(n);
-
-        // Mnożenie (Strassen)
-        OpCounter counter1;
-        multiplyStrassen(A, B, counter1);
-        multiply_ops.push_back(counter1.total());
 
         // Odwracanie
         OpCounter counter2;
@@ -689,7 +457,6 @@ void plotAllOperations(const vector<int>& sizes) {
     file << "n,multiply_ops,invert_ops,gauss_ops,lu_ops\n";
     for (size_t i = 0; i < x_axis.size(); ++i) {
         file << x_axis[i] << ","
-             << multiply_ops[i] << ","
              << invert_ops[i] << ","
              << gauss_ops[i] << ","
              << lu_ops[i] << "\n";
@@ -697,64 +464,6 @@ void plotAllOperations(const vector<int>& sizes) {
     file.close();
 
     cout << "\nDane zapisane do pliku 'all_operations_comparison.csv'\n";
-}
-
-
-// Szczegółowa analiza mnożenia
-void plotDetailedMultiplication(const vector<int>& sizes) {
-    vector<double> x_axis;
-    vector<double> classic_add, classic_mul, classic_div;
-    vector<double> recursive_add, recursive_mul, recursive_div;
-    vector<double> strassen_add, strassen_mul, strassen_div;
-
-    cout << "\nGenerowanie szczegółowej analizy...\n";
-
-    for (int n : sizes) {
-        cout << "Testowanie dla n = " << n << "..." << endl;
-        x_axis.push_back(n);
-
-        Matrix A = generateRandomMatrix(n);
-        Matrix B = generateRandomMatrix(n);
-
-        // Klasyczne
-        OpCounter counter1;
-        multiplyMatrices(A, B, counter1);
-        classic_add.push_back(counter1.additions);
-        classic_mul.push_back(counter1.multiplications);
-        classic_div.push_back(counter1.divisions);
-
-        // Rekurencyjne
-        OpCounter counter2;
-        multiplyRecursive(A, B, counter2);
-        recursive_add.push_back(counter2.additions);
-        recursive_mul.push_back(counter2.multiplications);
-        recursive_div.push_back(counter2.divisions);
-
-        // Strassen
-        OpCounter counter3;
-        multiplyStrassen(A, B, counter3);
-        strassen_add.push_back(counter3.additions);
-        strassen_mul.push_back(counter3.multiplications);
-        strassen_div.push_back(counter3.divisions);
-    }
-
-    // Zapis do CSV
-    ofstream file("detailed_multiplication_analysis.csv");
-    file << "n,"
-         << "classic_add,classic_mul,classic_div,"
-         << "recursive_add,recursive_mul,recursive_div,"
-         << "strassen_add,strassen_mul,strassen_div\n";
-
-    for (size_t i = 0; i < x_axis.size(); ++i) {
-        file << x_axis[i] << ","
-             << classic_add[i] << "," << classic_mul[i] << "," << classic_div[i] << ","
-             << recursive_add[i] << "," << recursive_mul[i] << "," << recursive_div[i] << ","
-             << strassen_add[i] << "," << strassen_mul[i] << "," << strassen_div[i] << "\n";
-    }
-
-    file.close();
-
-    cout << "\nDane zapisane do pliku 'detailed_multiplication_analysis.csv'\n";
 }
 
 // Helper: get current memory usage in MB
@@ -820,7 +529,7 @@ void benchmarkAllSizes(int maxN = 1000) {
     }
 
     file.close();
-    cout << "\n✅ Benchmark completed. Results saved to 'matrix_benchmark.csv'\n";
+    cout << "\nBenchmark completed. Results saved to 'matrix_benchmark.csv'\n";
 }
 
 void showMenu() {
@@ -870,13 +579,15 @@ void generatePlots() {
     
     switch (plotChoice) {
         case 1:
-            plotMultiplicationComparison(sizes);
+            //plotMultiplicationComparison(sizes);
+            cout << "Option removed\n";
             break;
         case 2:
             plotAllOperations(sizes);
             break;
         case 3:
-            plotDetailedMultiplication(sizes);
+            //plotDetailedMultiplication(sizes);
+            cout << "Option removed\n";
             break;
         default:
             cout << "Nieprawidłowy wybór!\n";
@@ -910,7 +621,8 @@ int main() {
         
         switch (choice) {
             case 1:
-                testMultiplication(n);
+                //testMultiplication(n);
+                cout << "Mutiplication removed\n";
                 break;
             case 2:
                 testInversion(n);
@@ -928,7 +640,8 @@ int main() {
                     cout << "Nieprawidłowy rozmiar macierzy!\n";
                     continue;
                 }
-                testMultiplication(n);
+                //testMultiplication(n);
+                cout << "Mutiplication removed\n";
                 testInversion(n);
                 testGaussElimination(n);
                 testLUFactorization(n);
