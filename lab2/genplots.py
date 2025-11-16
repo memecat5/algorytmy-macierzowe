@@ -165,7 +165,9 @@ def plot_benchmarks(csv_files = ["inversion_benchmark.csv", "gauss_benchmark.csv
     plt.legend()
     plt.grid()
 
-
+    plt.tight_layout()
+    plt.savefig("benchmarks_plot.png", dpi=200)
+    plt.show()
 
 
 # === Run all ===
