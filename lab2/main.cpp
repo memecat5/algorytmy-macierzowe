@@ -772,55 +772,112 @@ double getMemoryUsageMB() {
 #endif
 }
 
-// Benchmark: test multiplication for n = 1..maxN
-void benchmarkAllSizes(int maxN = 1000) {
+/*
+    Benchmark:
+    - Recursive inversion
+    - Gauss elimination
+    - LU factorization + determinant
+*/
+void benchmarkAllSizes(int maxN = 1024) {
     cout << "\n============================================\n";
-    cout << " BENCHMARK: MATRIX MULTIPLICATION (1.." << maxN << ")\n";
-    cout << "============================================\n";
+    cout << "   BENCHMARK ODWRACANIA MACIERZY (1.." << maxN << ")\n";
+    cout << "============================================\n\n";
 
-    ofstream file("matrix_benchmark.csv");
-    file << "n,time_ms,FLOPs,memory_MB,peak_memory_MB,FLOPs_per_sec\n";
+    ofstream file("inversion_benchmark.csv");
+    file << "n,"
+         << "rec_time_ms,rec_flops,rec_mem_MB,rec_flops_per_sec,"
+         << "gauss_time_ms,gauss_flops,gauss_mem_MB,gauss_flops_per_sec,"
+         << "lu_time_ms,lu_flops,lu_mem_MB,lu_flops_per_sec\n";
 
-    for (int n = 10; n <= maxN; n += 10) {
+    for (int n = 1; n <= maxN; n<<=1) {
+
+        // Memory estimation: A + B + temp buffers
+        double mem_MB = (3.0 * n * n * sizeof(double)) / (1024.0 * 1024.0);
+
         Matrix A = generateRandomMatrix(n);
-        Matrix B = generateRandomMatrix(n);
+        Matrix B = generateRandomMatrix(n); // only for Gauss (vector RHS)
+        Matrix I(n);  
+        for (int i = 0; i < n; i++) I.data[i][i] = 1.0;
 
-        // Theoretical FLOPs for classic O(n³) multiplication
-        double flops = 2.0 * pow(n, 3); // n³ multiplications + n³ additions
+        // ============================================================
+        // 1. Recursive inversion
+        // ============================================================
+        OpCounter c1;
+        auto m1_before = getMemoryUsageMB();
+        auto t1_start = chrono::high_resolution_clock::now();
+        Matrix R = invertMatrixRecursive(A, c1);
+        auto t1_end = chrono::high_resolution_clock::now();
+        auto m1_after = getMemoryUsageMB();
 
-        // Estimate memory used by A, B, and result C (3 * n² doubles)
-        double memoryUsageMB = (3.0 * n * n * sizeof(double)) / (1024.0 * 1024.0);
+        double rec_time = chrono::duration_cast<chrono::microseconds>(t1_end - t1_start).count() / 1000.0;
+        double rec_flops = c1.total();
+        double rec_flops_per_sec = rec_flops / (rec_time / 1000.0);
+        double rec_mem = max(m1_before, m1_after);
 
-        OpCounter counter;
-        auto mem_before = getMemoryUsageMB();
-        auto start = chrono::high_resolution_clock::now();
+        // ============================================================
+        // 2. Gauss elimination inversion: solve A X = I
+        // ============================================================
+        Matrix A2 = A;
+        Matrix I2 = I;
 
-        Matrix C = multiplyMatrices(A, B, counter);
+        OpCounter c2;
+        auto m2_before = getMemoryUsageMB();
+        auto t2_start = chrono::high_resolution_clock::now();
+        Matrix X = solveGaussRecursive(A2, I2, c2);
+        auto t2_end = chrono::high_resolution_clock::now();
+        auto m2_after = getMemoryUsageMB();
 
-        auto end = chrono::high_resolution_clock::now();
-        auto mem_after = getMemoryUsageMB();
-        double time_ms = chrono::duration_cast<chrono::microseconds>(end - start).count() / 1000.0;
+        double gauss_time = chrono::duration_cast<chrono::microseconds>(t2_end - t2_start).count() / 1000.0;
+        double gauss_flops = c2.total();
+        double gauss_flops_per_sec = gauss_flops / (gauss_time / 1000.0);
+        double gauss_mem = max(m2_before, m2_after);
 
-        double peakMem = max(mem_before, mem_after);
-        double flopsPerSec = (flops / (time_ms / 1000.0));
+        // ============================================================
+        // 3. LU factorization + determinant + inversion
+        // ============================================================
+        Matrix A3 = A;
+        OpCounter c3;
+        auto m3_before = getMemoryUsageMB();
+        auto t3_start = chrono::high_resolution_clock::now();
 
+        // LU decomposition in-place
+        luDecompositionRecursive(A3, 0, n - 1, c3);
+
+        // Determinant
+        double det = computeDeterminantFromLU(A3, c3);
+
+        // Solve A X = I using forward/back substitution
+        // (We can re-use solveGaussRecursive by feeding LU)
+        Matrix I3 = I;
+        Matrix X3 = solveGaussRecursive(A3, I3, c3);
+
+        auto t3_end = chrono::high_resolution_clock::now();
+        auto m3_after = getMemoryUsageMB();
+
+        double lu_time = chrono::duration_cast<chrono::microseconds>(t3_end - t3_start).count() / 1000.0;
+        double lu_flops = c3.total();
+        double lu_flops_per_sec = lu_flops / (lu_time / 1000.0);
+        double lu_mem = max(m3_before, m3_after);
+
+        // ============================================================
+        // Write row to CSV
+        // ============================================================
         file << n << ","
-             << time_ms << ","
-             << flops << ","
-             << memoryUsageMB << ","
-             << peakMem << ","
-             << flopsPerSec << "\n";
+             << rec_time << "," << rec_flops << "," << rec_mem << "," << rec_flops_per_sec << ","
+             << gauss_time << "," << gauss_flops << "," << gauss_mem << "," << gauss_flops_per_sec << ","
+             << lu_time << "," << lu_flops << "," << lu_mem << "," << lu_flops_per_sec
+             << "\n";
 
-        if (n % 100 == 0 || n == 1 || n == maxN) {
-            cout << setw(5) << n
-                 << " | time=" << setw(8) << fixed << setprecision(4) << time_ms << " ms"
-                 << " | mem=" << setw(7) << setprecision(3) << memoryUsageMB << " MB"
-                 << " | FLOPs/s=" << scientific << flopsPerSec << fixed << "\n";
-        }
+        // if (n % 50 == 0 || n == 1 || n == maxN) {
+            cout << "n=" << setw(4) << n
+                 << " | Rec: " << setw(8) << rec_time << " ms"
+                 << " | Gauss: " << setw(8) << gauss_time << " ms"
+                 << " | LU: " << setw(8) << lu_time << " ms" << endl;
+        // }
     }
 
     file.close();
-    cout << "\n✅ Benchmark completed. Results saved to 'matrix_benchmark.csv'\n";
+    cout << "\n✅ Benchmark zapisany do inversion_benchmark.csv\n";
 }
 
 void showMenu() {
