@@ -781,7 +781,7 @@ void benchmarkAllSizes(int maxN = 1000) {
     ofstream file("matrix_benchmark.csv");
     file << "n,time_ms,FLOPs,memory_MB,peak_memory_MB,FLOPs_per_sec\n";
 
-    for (int n = 1; n <= maxN; n++) {
+    for (int n = 10; n <= maxN; n += 10) {
         Matrix A = generateRandomMatrix(n);
         Matrix B = generateRandomMatrix(n);
 

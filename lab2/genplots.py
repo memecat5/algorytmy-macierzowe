@@ -1,122 +1,69 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Use a clean style
-plt.style.use("seaborn-v0_8-whitegrid")
+def plot_matrix_benchmark(csv_file="matrix_benchmark.csv"):
+    df = pd.read_csv(csv_file)
 
-# === 1️⃣ Multiplication comparison ===
-def plot_multiplication_comparison(csv_file="multiplication_comparison.csv"):
-    try:
-        df = pd.read_csv(csv_file)
-    except FileNotFoundError:
-        print(f"File {csv_file} not found! Not making plot")
-        return
     n = df["n"]
+    time_ms = df["time_ms"]
+    flops = df["FLOPs"]
+    memory = df["memory_MB"]
+    flops_per_sec = df["FLOPs_per_sec"]
 
-    plt.figure(figsize=(12, 8))
-
-    # --- Operations ---
-    plt.subplot(2, 1, 1)
-    plt.plot(n, df["classic_ops"], "o-b", label="Classic O(n³)")
-    plt.plot(n, df["recursive_ops"], "s-g", label="Recursive O(n³)")
-    plt.plot(n, df["strassen_ops"], "^r", label="Strassen O(n²․⁸⁰⁷)")
-    plt.xlabel("Matrix size (n)")
-    plt.ylabel("Floating-point operations")
-    plt.title("Matrix Multiplication: Operation Count Comparison")
-    plt.legend()
-    plt.grid(True)
-
-    # --- Time ---
-    plt.subplot(2, 1, 2)
-    plt.plot(n, df["classic_time_ms"], "o-b", label="Classic")
-    plt.plot(n, df["recursive_time_ms"], "s-g", label="Recursive")
-    plt.plot(n, df["strassen_time_ms"], "^r", label="Strassen")
-    plt.xlabel("Matrix size (n)")
-    plt.ylabel("Execution time (ms)")
-    plt.title("Matrix Multiplication: Execution Time")
-    plt.legend()
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.savefig("multiplication_comparison_plot.png", dpi=200)
-    plt.show()
-
-
-# === 2️⃣ All operations comparison ===
-def plot_all_operations(csv_file="all_operations_comparison.csv"):
-    try:
-        df = pd.read_csv(csv_file)
-    except FileNotFoundError:
-        print(f"File {csv_file} not found! Not making plot")
-        return
-    n = df["n"]
-
+    # -----------------------------
+    # 1. Time vs n
+    # -----------------------------
     plt.figure(figsize=(10, 6))
-    plt.plot(n, df["multiply_ops"], "o-b", label="Multiplication (Strassen)")
-    plt.plot(n, df["invert_ops"], "s-g", label="Inversion")
-    plt.plot(n, df["gauss_ops"], "^r", label="Gaussian Elimination")
-    plt.plot(n, df["lu_ops"], "d-m", label="LU + Determinant")
-    plt.xlabel("Matrix size (n)")
-    plt.ylabel("Total floating-point operations")
-    plt.title("Comparison of All Matrix Operations")
-    plt.legend()
+    plt.plot(n, time_ms)
+    plt.xlabel("Rozmiar macierzy n")
+    plt.ylabel("Czas (ms)")
+    plt.title("Czas obliczeń w zależności od rozmiaru macierzy")
     plt.grid(True)
-    plt.tight_layout()
-    plt.savefig("all_operations_comparison_plot.png", dpi=200)
-    plt.show()
+    plt.savefig("benchmark_time.png", dpi=200)
+    plt.close()
 
-
-# === 3️⃣ Detailed multiplication breakdown ===
-def plot_detailed_multiplication(csv_file="detailed_multiplication_analysis.csv"):
-    try:
-        df = pd.read_csv(csv_file)
-    except FileNotFoundError:
-        print(f"File {csv_file} not found! Not making plot")
-        return
-    n = df["n"]
-
-    plt.figure(figsize=(14, 8))
-
-    # Additions
-    plt.subplot(3, 1, 1)
-    plt.plot(n, df["classic_add"], "o-b", label="Classic")
-    plt.plot(n, df["recursive_add"], "s-g", label="Recursive")
-    plt.plot(n, df["strassen_add"], "^r", label="Strassen")
-    plt.ylabel("Additions/Subtractions")
-    plt.title("Addition Operations per Algorithm")
-    plt.legend()
+    # -----------------------------
+    # 2. FLOPs vs n
+    # -----------------------------
+    plt.figure(figsize=(10, 6))
+    plt.plot(n, flops)
+    plt.xlabel("Rozmiar macierzy n")
+    plt.ylabel("Liczba FLOPs")
+    plt.title("Liczba operacji zmiennoprzecinkowych")
     plt.grid(True)
+    plt.savefig("benchmark_flops.png", dpi=200)
+    plt.close()
 
-    # Multiplications
-    plt.subplot(3, 1, 2)
-    plt.plot(n, df["classic_mul"], "o-b", label="Classic")
-    plt.plot(n, df["recursive_mul"], "s-g", label="Recursive")
-    plt.plot(n, df["strassen_mul"], "^r", label="Strassen")
-    plt.ylabel("Multiplications")
-    plt.title("Multiplication Operations per Algorithm")
-    plt.legend()
+    # -----------------------------
+    # 3. Memory usage vs n
+    # -----------------------------
+    plt.figure(figsize=(10, 6))
+    plt.plot(n, memory)
+    plt.xlabel("Rozmiar macierzy n")
+    plt.ylabel("Zużycie pamięci (MB)")
+    plt.title("Szacowane zużycie pamięci")
     plt.grid(True)
+    plt.savefig("benchmark_memory.png", dpi=200)
+    plt.close()
 
-    # Divisions
-    plt.subplot(3, 1, 3)
-    plt.plot(n, df["classic_div"], "o-b", label="Classic")
-    plt.plot(n, df["recursive_div"], "s-g", label="Recursive")
-    plt.plot(n, df["strassen_div"], "^r", label="Strassen")
-    plt.xlabel("Matrix size (n)")
-    plt.ylabel("Divisions")
-    plt.title("Division Operations per Algorithm")
-    plt.legend()
+    # -----------------------------
+    # 4. FLOPs/sec vs n
+    # -----------------------------
+    plt.figure(figsize=(10, 6))
+    plt.plot(n, flops_per_sec)
+    plt.xlabel("Rozmiar macierzy n")
+    plt.ylabel("FLOPs / sekundę")
+    plt.title("Wydajność obliczeniowa (FLOPs/s)")
     plt.grid(True)
+    plt.savefig("benchmark_flops_per_sec.png", dpi=200)
+    plt.close()
 
-    plt.tight_layout()
-    plt.savefig("detailed_multiplication_analysis_plot.png", dpi=200)
-    plt.show()
+    print("Wygenerowano wykresy:")
+    print("  benchmark_time.png")
+    print("  benchmark_flops.png")
+    print("  benchmark_memory.png")
+    print("  benchmark_flops_per_sec.png")
 
 
-# === Run all ===
 if __name__ == "__main__":
-    print("Generating all plots...")
-    plot_multiplication_comparison()
-    plot_all_operations()
-    plot_detailed_multiplication()
-    print("Plots saved as PNG files.")
+    plot_matrix_benchmark()
