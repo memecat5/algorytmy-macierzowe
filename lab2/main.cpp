@@ -294,8 +294,11 @@ Matrix multiplyStrassen(const Matrix& A, const Matrix& B, OpCounter& counter, in
     return C;
 }
 
-// 2. REKURENCYJNE ODWRACANIE MACIERZY
-Matrix invertMatrixRecursive(const Matrix& m, OpCounter& counter) {
+// Typ wskaźnika funkcji dla algorytmu mnożenia
+typedef Matrix (*MultiplyFunc)(const Matrix&, const Matrix&, OpCounter&, int);
+
+// 2. REKURENCYJNE ODWRACANIE MACIERZY Z WYBOREM ALGORYTMU MNOŻENIA
+Matrix invertMatrixRecursive(const Matrix& m, OpCounter& counter, MultiplyFunc multiplyFunc, int threshold = 32) {
     int n = m.n;
     
     if (n == 1) {
@@ -315,18 +318,18 @@ Matrix invertMatrixRecursive(const Matrix& m, OpCounter& counter) {
     copySubmatrix(m, C, half, 0, 0, 0, remainder);
     copySubmatrix(m, D, half, half, 0, 0, remainder);
     
-    Matrix A_inv = invertMatrixRecursive(A, counter);
-    Matrix CA_inv = multiplyMatrices(C, A_inv, counter);
-    Matrix CA_invB = multiplyMatrices(CA_inv, B, counter);
+    Matrix A_inv = invertMatrixRecursive(A, counter, multiplyFunc, threshold);
+    Matrix CA_inv = multiplyFunc(C, A_inv, counter, threshold);
+    Matrix CA_invB = multiplyFunc(CA_inv, B, counter, threshold);
     Matrix S = subtractMatrices(D, CA_invB, counter);
-    Matrix S_inv = invertMatrixRecursive(S, counter);
+    Matrix S_inv = invertMatrixRecursive(S, counter, multiplyFunc, threshold);
     
     Matrix result(n);
-    Matrix A_invB = multiplyMatrices(A_inv, B, counter);
-    Matrix S_invC = multiplyMatrices(S_inv, C, counter);
-    Matrix A_invB_S_inv = multiplyMatrices(A_invB, S_inv, counter);
-    Matrix S_invC_A_inv = multiplyMatrices(S_invC, A_inv, counter);
-    Matrix temp = multiplyMatrices(A_invB_S_inv, S_invC_A_inv, counter);
+    Matrix A_invB = multiplyFunc(A_inv, B, counter, threshold);
+    Matrix S_invC = multiplyFunc(S_inv, C, counter, threshold);
+    Matrix A_invB_S_inv = multiplyFunc(A_invB, S_inv, counter, threshold);
+    Matrix S_invC_A_inv = multiplyFunc(S_invC, A_inv, counter, threshold);
+    Matrix temp = multiplyFunc(A_invB_S_inv, S_invC_A_inv, counter, threshold);
     
     for (int i = 0; i < half; i++) {
         for (int j = 0; j < half; j++) {
@@ -512,7 +515,7 @@ void testInversion(int n) {
     if (n <= 5) m.print("Macierz wejściowa");
     
     OpCounter counter;
-    Matrix inv = invertMatrixRecursive(m, counter);
+    Matrix inv = invertMatrixRecursive(m, counter, multiplyRecursive);
     
     if (n <= 5) inv.print("Macierz odwrotna");
     counter.print("Odwracanie macierzy");
@@ -655,7 +658,7 @@ void plotAllOperations(const vector<int>& sizes) {
         // Odwracanie
         OpCounter counter2;
         try {
-            invertMatrixRecursive(A, counter2);
+            invertMatrixRecursive(A, counter2, multiplyRecursive);
             invert_ops.push_back(counter2.total());
         } catch (...) {
             invert_ops.push_back(0);
@@ -774,18 +777,21 @@ double getMemoryUsageMB() {
 
 /*
     Benchmark:
-    - Recursive inversion
+    - Recursive inversion with Binet (classical multiplication)
+    - Recursive inversion with Strassen multiplication
     - Gauss elimination
     - LU factorization + determinant
 */
 void benchmarkAllSizes(int maxN = 1024) {
     cout << "\n============================================\n";
     cout << "   BENCHMARK ODWRACANIA MACIERZY (1.." << maxN << ")\n";
+    cout << "   Z PORÓWNANIEM BINET vs STRASSEN\n";
     cout << "============================================\n\n";
 
     ofstream file("inversion_benchmark.csv");
     file << "n,"
-         << "rec_time_ms,rec_flops,rec_mem_MB,rec_flops_per_sec,"
+         << "binet_time_ms,binet_flops,binet_mem_MB,binet_flops_per_sec,"
+         << "strassen_time_ms,strassen_flops,strassen_mem_MB,strassen_flops_per_sec,"
          << "gauss_time_ms,gauss_flops,gauss_mem_MB,gauss_flops_per_sec,"
          << "lu_time_ms,lu_flops,lu_mem_MB,lu_flops_per_sec\n";
 
@@ -800,80 +806,94 @@ void benchmarkAllSizes(int maxN = 1024) {
         for (int i = 0; i < n; i++) I.data[i][i] = 1.0;
 
         // ============================================================
-        // 1. Recursive inversion
+        // 1. Recursive inversion with BINET (classical multiplication)
         // ============================================================
         OpCounter c1;
         auto m1_before = getMemoryUsageMB();
         auto t1_start = chrono::high_resolution_clock::now();
-        Matrix R = invertMatrixRecursive(A, c1);
+        Matrix R_binet = invertMatrixRecursive(A, c1, multiplyRecursive);
         auto t1_end = chrono::high_resolution_clock::now();
         auto m1_after = getMemoryUsageMB();
 
-        double rec_time = chrono::duration_cast<chrono::microseconds>(t1_end - t1_start).count() / 1000.0;
-        double rec_flops = c1.total();
-        double rec_flops_per_sec = rec_flops / (rec_time / 1000.0);
-        double rec_mem = max(m1_before, m1_after);
+        double binet_time = chrono::duration_cast<chrono::microseconds>(t1_end - t1_start).count() / 1000.0;
+        double binet_flops = c1.total();
+        double binet_flops_per_sec = binet_flops / (binet_time / 1000.0);
+        double binet_mem = max(m1_before, m1_after);
 
         // ============================================================
-        // 2. Gauss elimination inversion: solve A X = I
+        // 2. Recursive inversion with STRASSEN multiplication
+        // ============================================================
+        OpCounter c2;
+        auto m2_before = getMemoryUsageMB();
+        auto t2_start = chrono::high_resolution_clock::now();
+        Matrix R_strassen = invertMatrixRecursive(A, c2, multiplyStrassen);
+        auto t2_end = chrono::high_resolution_clock::now();
+        auto m2_after = getMemoryUsageMB();
+
+        double strassen_time = chrono::duration_cast<chrono::microseconds>(t2_end - t2_start).count() / 1000.0;
+        double strassen_flops = c2.total();
+        double strassen_flops_per_sec = strassen_flops / (strassen_time / 1000.0);
+        double strassen_mem = max(m2_before, m2_after);
+
+        // ============================================================
+        // 3. Gauss elimination inversion: solve A X = I
         // ============================================================
         Matrix A2 = A;
         Matrix I2 = I;
 
-        OpCounter c2;
-        auto m2_before = getMemoryUsageMB();
-        auto t2_start = chrono::high_resolution_clock::now();
-        Matrix X = solveGaussRecursive(A2, I2, c2);
-        auto t2_end = chrono::high_resolution_clock::now();
-        auto m2_after = getMemoryUsageMB();
-
-        double gauss_time = chrono::duration_cast<chrono::microseconds>(t2_end - t2_start).count() / 1000.0;
-        double gauss_flops = c2.total();
-        double gauss_flops_per_sec = gauss_flops / (gauss_time / 1000.0);
-        double gauss_mem = max(m2_before, m2_after);
-
-        // ============================================================
-        // 3. LU factorization + determinant + inversion
-        // ============================================================
-        Matrix A3 = A;
         OpCounter c3;
         auto m3_before = getMemoryUsageMB();
         auto t3_start = chrono::high_resolution_clock::now();
-
-        // LU decomposition in-place
-        luDecompositionRecursive(A3, 0, n - 1, c3);
-
-        // Determinant
-        double det = computeDeterminantFromLU(A3, c3);
-
-        // Solve A X = I using forward/back substitution
-        // (We can re-use solveGaussRecursive by feeding LU)
-        Matrix I3 = I;
-        Matrix X3 = solveGaussRecursive(A3, I3, c3);
-
+        Matrix X = solveGaussRecursive(A2, I2, c3);
         auto t3_end = chrono::high_resolution_clock::now();
         auto m3_after = getMemoryUsageMB();
 
-        double lu_time = chrono::duration_cast<chrono::microseconds>(t3_end - t3_start).count() / 1000.0;
-        double lu_flops = c3.total();
+        double gauss_time = chrono::duration_cast<chrono::microseconds>(t3_end - t3_start).count() / 1000.0;
+        double gauss_flops = c3.total();
+        double gauss_flops_per_sec = gauss_flops / (gauss_time / 1000.0);
+        double gauss_mem = max(m3_before, m3_after);
+
+        // ============================================================
+        // 4. LU factorization + determinant + inversion
+        // ============================================================
+        Matrix A3 = A;
+        OpCounter c4;
+        auto m4_before = getMemoryUsageMB();
+        auto t4_start = chrono::high_resolution_clock::now();
+
+        // LU decomposition in-place
+        luDecompositionRecursive(A3, 0, n - 1, c4);
+
+        // Determinant
+        double det = computeDeterminantFromLU(A3, c4);
+
+        // Solve A X = I using forward/back substitution
+        Matrix I3 = I;
+        Matrix X3 = solveGaussRecursive(A3, I3, c4);
+
+        auto t4_end = chrono::high_resolution_clock::now();
+        auto m4_after = getMemoryUsageMB();
+
+        double lu_time = chrono::duration_cast<chrono::microseconds>(t4_end - t4_start).count() / 1000.0;
+        double lu_flops = c4.total();
         double lu_flops_per_sec = lu_flops / (lu_time / 1000.0);
-        double lu_mem = max(m3_before, m3_after);
+        double lu_mem = max(m4_before, m4_after);
 
         // ============================================================
         // Write row to CSV
         // ============================================================
         file << n << ","
-             << rec_time << "," << rec_flops << "," << rec_mem << "," << rec_flops_per_sec << ","
+             << binet_time << "," << binet_flops << "," << binet_mem << "," << binet_flops_per_sec << ","
+             << strassen_time << "," << strassen_flops << "," << strassen_mem << "," << strassen_flops_per_sec << ","
              << gauss_time << "," << gauss_flops << "," << gauss_mem << "," << gauss_flops_per_sec << ","
              << lu_time << "," << lu_flops << "," << lu_mem << "," << lu_flops_per_sec
              << "\n";
 
-        // if (n % 50 == 0 || n == 1 || n == maxN) {
-            cout << "n=" << setw(4) << n
-                 << " | Rec: " << setw(8) << rec_time << " ms"
-                 << " | Gauss: " << setw(8) << gauss_time << " ms"
-                 << " | LU: " << setw(8) << lu_time << " ms" << endl;
-        // }
+        cout << "n=" << setw(4) << n
+             << " | Binet: " << setw(8) << binet_time << " ms"
+             << " | Strassen: " << setw(8) << strassen_time << " ms"
+             << " | Gauss: " << setw(8) << gauss_time << " ms"
+             << " | LU: " << setw(8) << lu_time << " ms" << endl;
     }
 
     file.close();
@@ -890,7 +910,7 @@ void showMenu() {
     cout << "4. Faktoryzacja LU i wyznacznik\n";
     cout << "5. Testy dla wszystkich operacji\n";
     cout << "6. Wykresy zależności operacji od rozmiaru macierzy\n";
-    cout << "7. Benchmark (1..1000)\n";
+    cout << "7. Benchmark (1..1024) - Binet vs Strassen\n";
     cout << "0. Wyjście\n";
     cout << "\nWybierz opcję: ";
 }

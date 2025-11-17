@@ -8,19 +8,23 @@ def plot_inversion_benchmark(csv_file="inversion_benchmark.csv"):
     n = df["n"]
 
     # Data columns
-    rec_time = df["rec_time_ms"]
+    binet_time = df["binet_time_ms"]
+    strassen_time = df["strassen_time_ms"]
     gauss_time = df["gauss_time_ms"]
     lu_time = df["lu_time_ms"]
 
-    rec_flops = df["rec_flops"]
+    binet_flops = df["binet_flops"]
+    strassen_flops = df["strassen_flops"]
     gauss_flops = df["gauss_flops"]
     lu_flops = df["lu_flops"]
 
-    rec_mem = df["rec_mem_MB"]
+    binet_mem = df["binet_mem_MB"]
+    strassen_mem = df["strassen_mem_MB"]
     gauss_mem = df["gauss_mem_MB"]
     lu_mem = df["lu_mem_MB"]
 
-    rec_fps = df["rec_flops_per_sec"]
+    binet_fps = df["binet_flops_per_sec"]
+    strassen_fps = df["strassen_flops_per_sec"]
     gauss_fps = df["gauss_flops_per_sec"]
     lu_fps = df["lu_flops_per_sec"]
 
@@ -28,7 +32,8 @@ def plot_inversion_benchmark(csv_file="inversion_benchmark.csv"):
     # 1. Time plot
     # -------------------------------------------------------------------------
     plt.figure(figsize=(10, 6))
-    plt.plot(n, rec_time, label="Rekurencyjna")
+    plt.plot(n, binet_time, label="Rekurencyjna (Binet)")
+    plt.plot(n, strassen_time, label="Rekurencyjna (Strassen)")
     plt.plot(n, gauss_time, label="Gauss")
     plt.plot(n, lu_time, label="LU")
     plt.xlabel("Rozmiar macierzy n")
@@ -43,7 +48,8 @@ def plot_inversion_benchmark(csv_file="inversion_benchmark.csv"):
     # 2. FLOPs plot
     # -------------------------------------------------------------------------
     plt.figure(figsize=(10, 6))
-    plt.plot(n, rec_flops, label="Rekurencyjna")
+    plt.plot(n, binet_flops, label="Rekurencyjna (Binet)")
+    plt.plot(n, strassen_flops, label="Rekurencyjna (Strassen)")
     plt.plot(n, gauss_flops, label="Gauss")
     plt.plot(n, lu_flops, label="LU")
     plt.xlabel("Rozmiar macierzy n")
@@ -58,7 +64,8 @@ def plot_inversion_benchmark(csv_file="inversion_benchmark.csv"):
     # 3. Memory usage plot
     # -------------------------------------------------------------------------
     plt.figure(figsize=(10, 6))
-    plt.plot(n, rec_mem, label="Rekurencyjna")
+    plt.plot(n, binet_mem, label="Rekurencyjna (Binet)")
+    plt.plot(n, strassen_mem, label="Rekurencyjna (Strassen)")
     plt.plot(n, gauss_mem, label="Gauss")
     plt.plot(n, lu_mem, label="LU")
     plt.xlabel("Rozmiar macierzy n")
@@ -73,7 +80,8 @@ def plot_inversion_benchmark(csv_file="inversion_benchmark.csv"):
     # 4. FLOPs per second
     # -------------------------------------------------------------------------
     plt.figure(figsize=(10, 6))
-    plt.plot(n, rec_fps, label="Rekurencyjna")
+    plt.plot(n, binet_fps, label="Rekurencyjna (Binet)")
+    plt.plot(n, strassen_fps, label="Rekurencyjna (Strassen)")
     plt.plot(n, gauss_fps, label="Gauss")
     plt.plot(n, lu_fps, label="LU")
     plt.xlabel("Rozmiar macierzy n")
