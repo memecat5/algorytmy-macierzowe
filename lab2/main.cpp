@@ -112,6 +112,7 @@ Matrix invertMatrixRecursive(const Matrix& A, OpCounter& counter) {
     // Oblicz S = A22 - A21 * A11_inv * A12
     Matrix S_tmp = multiplyBinet(A21, A11_inv, counter);
     Matrix S = A22 - multiplyBinet(S_tmp, A12, counter);
+    counter.additions += A22.rows * A22.cols;
 
     // Oblicz S_inv = S^{-1}
     Matrix S_inv = invertMatrixRecursive(S, counter);
@@ -133,6 +134,7 @@ Matrix invertMatrixRecursive(const Matrix& A, OpCounter& counter) {
     // B11 = A11_inv - (A11_inv * A12 * B21)
     Matrix B11_tmp = multiplyBinet(A11_inv, A12, counter);
     Matrix B11 = A11_inv - multiplyBinet(B11_tmp, B21, counter);
+    counter.additions -= A11_inv.rows * A11_inv.cols;
 
     // 3. POŁĄCZENIE
     Matrix B(n, n);
@@ -220,6 +222,8 @@ Matrix solveGaussRecursive(const Matrix& A, const Matrix& b, OpCounter& counter)
 
     // Krok 2: Rozwiąż A11 * x1 = b1' (gdzie b1' = b1 - A12 * x2)
     Matrix b1_prime = b1 - multiplyBinet(A12, x2, counter);
+    counter.additions += b1.rows * b1.cols;
+
     Matrix x1 = solveGaussRecursive(A11, b1_prime, counter);
 
     // 4. POŁĄCZENIE

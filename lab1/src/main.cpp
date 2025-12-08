@@ -67,27 +67,27 @@ int main() {
     // }
 
     ofstream out("results_strassen.csv");
-    out << "n,time_seconds,mem_delta_MB\n";
+    out << "n,time_seconds,mem_delta_MB,fadd_count,fmult_count\n";
 
-    for (int n = 100; n <= 3000; n += 100) {
+    for (int n = 100; n <= 2000; n += 100) {
         cout << "Measuring n = " << n << "...\n";
 
         Matrix A = randomMatrix(n, n);
         Matrix B = randomMatrix(n, n);
         Matrix C;
-        long long fadd_count, fmult_count;
+        StrassenStats stats;
 
         double t1 = measureTime([&]() {
-            C = multiplyStrassen(A, B);
+            C = multiplyStrassen(A, B, stats);
         });
 
         double mem_after = getMemoryUsageMB();
 
         out << n << "," << fixed << setprecision(8) << t1
-            << "," << setprecision(4) << mem_after << "\n";
+            << "," << setprecision(4) << mem_after << "," << stats.additions << "," << stats.multiplications << "\n";
     }
 
     out.close();
-    cout << "\nWyniki zapisano do pliku results.csv\n";
+    cout << "\nWyniki zapisano do pliku results_strassen.csv\n";
     return 0;
 }
