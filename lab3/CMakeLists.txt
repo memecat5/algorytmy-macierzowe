@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 include(FetchContent)
 
+# komendy dla clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 1. Pobieranie Eigen
@@ -32,14 +33,13 @@ add_executable(SvdCompression
     src/bitmap_utils.cpp
 )
 
-# Dodajemy sciezki naglowkowe
 target_include_directories(SvdCompression PRIVATE 
     ${eigen3_SOURCE_DIR}
     ${spectra_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include
 )
 
-# Linkowanie (chociaz to header-only, CMake lubi miec targety)
 target_link_libraries(SvdCompression PRIVATE Eigen3::Eigen)
 
+# optymalizacja kompilacji
 target_compile_options(SvdCompression PRIVATE -O3 -march=native)

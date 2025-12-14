@@ -8,10 +8,12 @@ using namespace Eigen;
 using namespace std;
 using namespace Spectra;
 
-// ==========================================
-// Funkcja SVD oparta na Spectra::SymEigsSolver
-// ==========================================
 
+/*
+    Funkcja licząca PartialSVD, oparta na funkcji ze Spectry,
+    czyli nakładki na Eigen. Dla odpowiednio małych macierzy
+    liczy zwykłe SVD
+*/
 void computePartialSVD(const MatrixXd& A, int k, MatrixXd& U_out, VectorXd& S_out, MatrixXd& V_out) {
     int m = A.rows();
     int n = A.cols();
@@ -23,16 +25,14 @@ void computePartialSVD(const MatrixXd& A, int k, MatrixXd& U_out, VectorXd& S_ou
     bool useSpectra = (n > 20) && (m > 20) && (ncv < n);
 
     if (useSpectra) {
-        // 1. Definiujemy operator
+        // operator dla Spectry
         CovarianceMatProd op(A);
 
-        // 2. Konfigurujemy solver.
-        // POPRAWKA: W nowym Spectra podajemy TYLKO typ operatora w szablonie.
+        // konfiguracja solvera
         SymEigsSolver<CovarianceMatProd> eigs(op, k, ncv);
 
         eigs.init();
         
-        // POPRAWKA: Regułę sortowania (LargestMagn) podajemy tutaj, jako argument funkcji.
         int nconv = eigs.compute(Spectra::SortRule::LargestMagn, 1000, 1e-10);
 
         if (eigs.info() == CompInfo::Successful) {
@@ -59,7 +59,7 @@ void computePartialSVD(const MatrixXd& A, int k, MatrixXd& U_out, VectorXd& S_ou
         }
     }
 
-    // --- FALLBACK DO EIGEN ---
+    // zwykłe SVD dla małych macierzy
     BDCSVD<MatrixXd> svd(A, ComputeThinU | ComputeThinV);
     int actualK = std::min((int)svd.singularValues().size(), k);
     U_out = svd.matrixU().leftCols(actualK);
