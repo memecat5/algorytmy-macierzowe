@@ -1,21 +1,20 @@
 #include <iostream>
 #include <vector>
-#include <string>
+#include <cmath>
+#include <chrono>
+#include <fstream>
+#include <random>
 #include <memory>
 
-// Biblioteki Eigen i Spectra
+// Zakładamy, że pliki nagłówkowe są w tym samym katalogu
 #include <Eigen/Core>
-#include <Eigen/SVD>
-#include <Spectra/SymEigsSolver.h>
-
+#include <Eigen/Dense>
+#include "compress.hpp"   // Definicja SVDNode i compressMatrixRecursive
 #include "partial_svd.hpp"
-#include "compress.hpp"
 #include "bitmap_utils.hpp"
 
 using namespace Eigen;
 using namespace std;
-using namespace Spectra;
-
 
 void drawCompressedMatrix(const SVDNode* node, Ref<MatrixXd> target) {
     if (node->isLeaf) {
@@ -29,7 +28,7 @@ void drawCompressedMatrix(const SVDNode* node, Ref<MatrixXd> target) {
     }
 }
 
-int main() {
+int interactiveDrawCompressedMatrix() {
     int W = 512, H = 512;
     MatrixXd R, G, B;
 
@@ -64,5 +63,119 @@ int main() {
 
     savePPM("final.ppm", oR, oG, oB);
     cout << "Zapisano final.ppm" << endl;
+    return 0;
+}
+
+// Funkcja generująca macierz o topologii siatki 3D zgodnie z poleceniem
+// "wiersz = wierzchołek, niezerowe losowe wartości w kolumnach sąsiadujące wierzchołki siatki"
+MatrixXd generate3DGridMatrix(int k) {
+    int n = std::pow(2, k); // bok sześcianu
+    int N = n * n * n;      // całkowity rozmiar macierzy (N x N)
+    
+    // Używamy macierzy gęstej, bo algorytm kompresji w compress.cpp przyjmuje MatrixXd
+    MatrixXd A = MatrixXd::Zero(N, N);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(0.1, 1.0); // Losowe wartości
+
+    // Iteracja po wszystkich punktach siatki (z, y, x)
+    for (int z = 0; z < n; ++z) {
+        for (int y = 0; y < n; ++y) {
+            for (int x = 0; x < n; ++x) {
+                // Indeks wiersza odpowiadający punktowi (x,y,z)
+                // Mapowanie [i,j,k] -> row (zgodnie ze slajdem 8/27, wzór podobny)
+                int row = z * n * n + y * n + x;
+                
+                // Sąsiedzi w 3D: 6 kierunków
+                int dx[] = {1, -1, 0, 0, 0, 0};
+                int dy[] = {0, 0, 1, -1, 0, 0};
+                int dz[] = {0, 0, 0, 0, 1, -1};
+
+                for (int i = 0; i < 6; ++i) {
+                    int nx = x + dx[i];
+                    int ny = y + dy[i];
+                    int nz = z + dz[i];
+
+                    // Sprawdzenie czy sąsiad jest wewnątrz siatki
+                    if (nx >= 0 && nx < n && ny >= 0 && ny < n && nz >= 0 && nz < n) {
+                        int col = nz * n * n + ny * n + nx;
+                        A(row, col) = dis(gen); 
+                    }
+                }
+                // Wartość na przekątnej (opcjonalnie, dla stabilności numerycznej)
+                A(row, row) = 1.0; 
+            }
+        }
+    }
+    return A;
+}
+
+// Rekurencyjne mnożenie macierzy skompresowanej przez wektor
+// Zgodnie z algorytmem na slajdzie 20/27
+VectorXd h_matrix_vector_mult(const SVDNode* node, const VectorXd& x) {
+    if (node->isLeaf) {
+        if (node->S.size() == 0) return VectorXd::Zero(x.rows());
+        return node->U * (node->S.asDiagonal() * (node->V.transpose() * x));
+    } else {
+        int half = x.rows() / 2;
+        VectorXd x1 = x.head(half);
+        VectorXd x2 = x.tail(x.rows() - half);
+        VectorXd y1 = h_matrix_vector_mult(node->children[0].get(), x1) + 
+                      h_matrix_vector_mult(node->children[1].get(), x2);
+        VectorXd y2 = h_matrix_vector_mult(node->children[2].get(), x1) + 
+                      h_matrix_vector_mult(node->children[3].get(), x2);
+        VectorXd y(x.rows());
+        y << y1, y2;
+        return y;
+    }
+}
+
+int main() {
+    ofstream results("results.csv");
+    // Dodano kolumnę MMM_FLOPs
+    results << "k,N,Time_Compression,Time_MVM,MVM_FLOPs,MMM_FLOPs\n";
+    
+    double delta = 1e-6;
+    int b = 10;
+
+    for (int k : {2, 3, 4}) {
+        int n_side = std::pow(2, k);
+        int N = n_side * n_side * n_side;
+        
+        cout << "--- Przetwarzanie k=" << k << " (N=" << N << "x" << N << ") ---" << endl;
+
+        cout << "Generowanie macierzy..." << endl;
+        MatrixXd A = generate3DGridMatrix(k);
+        
+        cout << "Kompresja..." << endl;
+        auto start = chrono::high_resolution_clock::now();
+        auto root = compressMatrixRecursive(A, delta, b);
+        auto end = chrono::high_resolution_clock::now();
+        double time_comp = chrono::duration<double>(end - start).count();
+        cout << "Czas kompresji: " << time_comp << " s" << endl;
+
+        // Obliczanie złożoności
+        long long mvm_flops = getMVMFlops(root.get());
+        long long mmm_flops = getMMMFlops(root.get(), root.get()); // A * A
+
+        cout << "Teoretyczne FLOPs (MVM): " << mvm_flops << endl;
+        cout << "Teoretyczne FLOPs (MMM A*A): " << mmm_flops << endl;
+
+        VectorXd x = VectorXd::Random(N); 
+        
+        cout << "Mnożenie macierz-wektor..." << endl;
+        start = chrono::high_resolution_clock::now();
+        VectorXd y = h_matrix_vector_mult(root.get(), x);
+        end = chrono::high_resolution_clock::now();
+        double time_mvm = chrono::duration<double>(end - start).count();
+        cout << "Czas MVM: " << time_mvm << " s" << endl;
+
+        results << k << "," << N << "," << time_comp << "," << time_mvm << "," << mvm_flops << "," << mmm_flops << "\n";
+        results.flush();
+    }
+
+    results.close();
+    cout << "Zakończono." << endl;
     return 0;
 }
