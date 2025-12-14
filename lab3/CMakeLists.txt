@@ -29,6 +29,7 @@ add_executable(SvdCompression
     src/main.cpp
     src/compress.cpp
     src/partial_svd.cpp
+    src/bitmap_utils.cpp
 )
 
 # Dodajemy sciezki naglowkowe
