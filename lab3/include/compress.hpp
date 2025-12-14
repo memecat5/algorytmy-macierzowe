@@ -24,4 +24,7 @@ long long getMVMFlops(const SVDNode* node);
 // Oblicza liczbę operacji FLOPs dla mnożenia macierz-macierz (MMM): A * B
 long long getMMMFlops(const SVDNode* nodeA, const SVDNode* nodeB);
 
+// Funkcja do rekonstrukcji macierzy gęstej
+MatrixXd decompressMatrix(const SVDNode* node);
+
 #endif

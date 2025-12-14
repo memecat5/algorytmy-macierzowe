@@ -133,8 +133,8 @@ VectorXd h_matrix_vector_mult(const SVDNode* node, const VectorXd& x) {
 
 int main() {
     ofstream results("results.csv");
-    // Dodano kolumnę MMM_FLOPs
-    results << "k,N,Time_Compression,Time_MVM,MVM_FLOPs,MMM_FLOPs\n";
+    // Dodano kolumnę SSE_Error (błąd mnożenia) oraz Matrix_Diff_Norm (błąd rekonstrukcji macierzy)
+    results << "k,N,Time_Compression,Time_MVM,MVM_FLOPs,MMM_FLOPs,SSE_Error,Matrix_Diff_Norm\n";
     
     double delta = 1e-6;
     int b = 10;
@@ -155,23 +155,37 @@ int main() {
         double time_comp = chrono::duration<double>(end - start).count();
         cout << "Czas kompresji: " << time_comp << " s" << endl;
 
-        // Obliczanie złożoności
+        // --- Analiza złożoności ---
         long long mvm_flops = getMVMFlops(root.get());
-        long long mmm_flops = getMMMFlops(root.get(), root.get()); // A * A
+        long long mmm_flops = getMMMFlops(root.get(), root.get());
 
-        cout << "Teoretyczne FLOPs (MVM): " << mvm_flops << endl;
-        cout << "Teoretyczne FLOPs (MMM A*A): " << mmm_flops << endl;
-
+        // --- Mnożenie Macierz-Wektor ---
         VectorXd x = VectorXd::Random(N); 
         
+        // 1. Dokładne mnożenie (Dense)
+        VectorXd y_dense = A * x;
+
+        // 2. Mnożenie H-Macierzy (Approx)
         cout << "Mnożenie macierz-wektor..." << endl;
         start = chrono::high_resolution_clock::now();
-        VectorXd y = h_matrix_vector_mult(root.get(), x);
+        VectorXd y_approx = h_matrix_vector_mult(root.get(), x);
         end = chrono::high_resolution_clock::now();
         double time_mvm = chrono::duration<double>(end - start).count();
-        cout << "Czas MVM: " << time_mvm << " s" << endl;
 
-        results << k << "," << N << "," << time_comp << "," << time_mvm << "," << mvm_flops << "," << mmm_flops << "\n";
+        // 3. Obliczenie błędu SSE (Sum of Squared Errors)
+        // SSE = ||y_dense - y_approx||^2
+        double sse = (y_dense - y_approx).squaredNorm();
+        cout << "Błąd MVM (SSE): " << sse << endl;
+
+        // --- Rekonstrukcja macierzy i sprawdzenie normy błędu ---
+        // (Opcjonalne, ale potwierdza, że dekonstrukcja działa)
+        MatrixXd A_rec = decompressMatrix(root.get());
+        double matrix_diff_norm = (A - A_rec).norm(); // Norma Frobeniusa różnicy
+        cout << "Błąd rekonstrukcji macierzy (Norma Frobeniusa): " << matrix_diff_norm << endl;
+
+        // Zapis do CSV
+        results << k << "," << N << "," << time_comp << "," << time_mvm << "," 
+                << mvm_flops << "," << mmm_flops << "," << sse << "," << matrix_diff_norm << "\n";
         results.flush();
     }
 

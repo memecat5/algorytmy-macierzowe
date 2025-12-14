@@ -130,3 +130,31 @@ long long getMMMFlops(const SVDNode* A, const SVDNode* B) {
 
     return totalFlops;
 }
+
+MatrixXd decompressMatrix(const SVDNode* node) {
+    if (!node) return MatrixXd();
+
+    if (node->isLeaf) {
+        // Rekonstrukcja bloku: A ~ U * S * V^T
+        // Jeśli S jest puste (macierz zerowa), zwracamy zera o odpowiednich wymiarach
+        if (node->S.size() == 0) {
+            return MatrixXd::Zero(node->U.rows(), node->V.rows());
+        }
+        return node->U * node->S.asDiagonal() * node->V.transpose();
+    } else {
+        // Rekurencyjne pobranie 4 ćwiartek
+        MatrixXd TL = decompressMatrix(node->children[0].get()); // Top-Left
+        MatrixXd TR = decompressMatrix(node->children[1].get()); // Top-Right
+        MatrixXd BL = decompressMatrix(node->children[2].get()); // Bottom-Left
+        MatrixXd BR = decompressMatrix(node->children[3].get()); // Bottom-Right
+
+        // Scalenie w jedną dużą macierz
+        MatrixXd result(TL.rows() + BL.rows(), TL.cols() + TR.cols());
+        
+        // Operator przecinkowy Eigen do składania bloków
+        result << TL, TR,
+                  BL, BR;
+                  
+        return result;
+    }
+}
