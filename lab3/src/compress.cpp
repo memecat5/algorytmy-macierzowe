@@ -15,15 +15,15 @@ std::unique_ptr<SVDNode> compressMatrixRecursive(const MatrixXd& block, double d
 
     
     // taka optymalizacja jest już w computePartialSVD, więc tu chyba niepotrzebna
-
-    // if (rows <= 8 || cols <= 8) {
-    //     BDCSVD<MatrixXd> svd(block, ComputeThinU | ComputeThinV);
-    //     node->isLeaf = true;
-    //     node->U = svd.matrixU();
-    //     node->S = svd.singularValues();
-    //     node->V = svd.matrixV();
-    //     return node;
-    // }
+    // jednak była potrzebna XDD
+    if (rows <= 2 || cols <= 2) {
+        BDCSVD<MatrixXd> svd(block, ComputeThinU | ComputeThinV);
+        node->isLeaf = true;
+        node->U = svd.matrixU();
+        node->S = svd.singularValues();
+        node->V = svd.matrixV();
+        return node;
+    }
 
     MatrixXd U_part, V_part;
     VectorXd S_part;

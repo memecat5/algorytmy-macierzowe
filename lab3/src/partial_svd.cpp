@@ -18,11 +18,13 @@ void computePartialSVD(const MatrixXd& A, int k, MatrixXd& U_out, VectorXd& S_ou
     int m = A.rows();
     int n = A.cols();
 
-    // Spectra wymaga, by ncv (liczba wektorów Arnoldiego) spełniała k < ncv <= n
-    int ncv = std::min(n, 2 * k + 5);
+    int ncv = std::min({m, n, 2 * k + 5}); // Bezpieczny margines
 
-    // Warunek użycia Spectra (duże macierze)
-    bool useSpectra = (n > 20) && (m > 20) && (ncv < n);
+    // WARUNEK KRYTYCZNY:
+    // 1. Macierz musi być dostatecznie duża (np. > 16x16), żeby opłacało się uruchamiać Arnoldiego.
+    // 2. ncv musi być ściśle większe od k (wymóg matematyczny algorytmu).
+    // 3. ncv musi być mniejsze lub równe wymiarowi macierzy.
+    bool useSpectra = (m > 16) && (n > 16) && (ncv > k) && (ncv <= std::min(m, n));
 
     if (useSpectra) {
         // operator dla Spectry
@@ -59,7 +61,7 @@ void computePartialSVD(const MatrixXd& A, int k, MatrixXd& U_out, VectorXd& S_ou
         }
     }
 
-    // zwykłe SVD dla małych macierzy
+    // zwykłe SVD dla małych macierzy lub kiedy obliczenia się wywalą
     BDCSVD<MatrixXd> svd(A, ComputeThinU | ComputeThinV);
     int actualK = std::min((int)svd.singularValues().size(), k);
     U_out = svd.matrixU().leftCols(actualK);

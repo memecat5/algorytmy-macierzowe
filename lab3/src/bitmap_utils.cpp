@@ -23,6 +23,30 @@ void savePPM(const string& filename, const MatrixXd& R, const MatrixXd& G, const
     }
 }
 
+void saveSeparateChannels(const string& prefix, const MatrixXd& R, const MatrixXd& G, const MatrixXd& B) {
+    int rows = R.rows();
+    int cols = R.cols();
+    
+    // Macierz samych zer (czarny kolor)
+    MatrixXd Zeros = MatrixXd::Zero(rows, cols);
+
+    // 1. Zapisz tylko kanał R (R, 0, 0)
+    savePPM(prefix + "_red.ppm", R, Zeros, Zeros);
+    
+    // 2. Zapisz tylko kanał G (0, G, 0)
+    savePPM(prefix + "_green.ppm", Zeros, G, Zeros);
+
+    // 3. Zapisz tylko kanał B (0, 0, B)
+    savePPM(prefix + "_blue.ppm", Zeros, Zeros, B);
+    
+    // Opcjonalnie: Zapisz jako skala szarości (często łatwiej tak analizować detale)
+    // savePPM(prefix + "_red_mono.ppm", R, R, R);
+    // savePPM(prefix + "_green_mono.ppm", G, G, G);
+    // savePPM(prefix + "_blue_mono.ppm", B, B, B);
+
+    cout << "Zapisano osobne kanaly: " << prefix << "_red/green/blue.ppm" << endl;
+}
+
 void loadPPM(const string& filename, MatrixXd& R, MatrixXd& G, MatrixXd& B) {
     ifstream file(filename, ios::binary);
     if (!file.is_open()) {

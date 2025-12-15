@@ -29,6 +29,11 @@ void drawCompressedMatrix(const SVDNode* node, Ref<MatrixXd> target) {
     }
 }
 
+VectorXd getSingularValues(const MatrixXd& M){
+    BDCSVD<MatrixXd> svd(M, ComputeThinU | ComputeThinV);
+    return svd.singularValues();
+}
+
 int main() {
     int W = 512, H = 512;
     MatrixXd R, G, B;
@@ -42,25 +47,41 @@ int main() {
     // Wczytanie bitmapy z pliku
     loadPPM("original.ppm", R, G, B);
 
-    int b ;//= 20;        
-    double delta;// = 50000.0; 
+    VectorXd singular_values_R = getSingularValues(R);
+    VectorXd singular_values_G = getSingularValues(G);
+    VectorXd singular_values_B = getSingularValues(B);
 
-    cout << "Podaj parametry dokladnosci - delta: ";
-    cin >> delta;
+    int b;
+    int nth_delta;
+
+    cout << "Podaj parametry dokladnosci - delta (po ktorej wartosci wlasnej obcinamy): ";
+    cin >> nth_delta;
+
+    if (nth_delta < 1 || nth_delta > 512){
+        cout << "delta musi być indeksem wartości własnej\n";
+        return -1;
+    }
+
     cout << "b: ";
     cin >> b;
 
-    cout << "Start (Spectra SVD 1.0+, b=" << b << ")..." << endl;
+    cout << "Start b = " << b << "\ndeltaR = " <<
+    singular_values_R[nth_delta-1] << "\tdeltaG = " << singular_values_G[nth_delta-1]
+    << "\tdeltaB = " << singular_values_B[nth_delta-1] << endl;
+
+
 
     vector<std::unique_ptr<SVDNode>> channels(3);
-    channels[0] = compressMatrixRecursive(R, delta, b);
-    channels[1] = compressMatrixRecursive(G, delta, b);
-    channels[2] = compressMatrixRecursive(B, delta, b);
+    channels[0] = compressMatrixRecursive(R, singular_values_R[nth_delta-1], b);
+    channels[1] = compressMatrixRecursive(G, singular_values_G[nth_delta-1], b);
+    channels[2] = compressMatrixRecursive(B, singular_values_B[nth_delta-1], b);
 
     MatrixXd oR(H,W), oG(H,W), oB(H,W);
     drawCompressedMatrix(channels[0].get(), oR);
     drawCompressedMatrix(channels[1].get(), oG);
     drawCompressedMatrix(channels[2].get(), oB);
+
+    saveSeparateChannels("final", oR, oG, oB);
 
     savePPM("final.ppm", oR, oG, oB);
     cout << "Zapisano final.ppm" << endl;
