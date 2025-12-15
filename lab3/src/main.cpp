@@ -81,6 +81,15 @@ int main() {
     drawCompressedMatrix(channels[1].get(), oG);
     drawCompressedMatrix(channels[2].get(), oB);
 
+    MatrixXd rR(H,W), rG(H,W), rB(H,W);
+    drawRankMap(channels[0].get(), rR, b);
+    drawRankMap(channels[1].get(), rG, b);
+    drawRankMap(channels[2].get(), rB, b);
+    
+    savePPM("rank_map_red.ppm", rR, rR, rR);
+    savePPM("rank_map_green.ppm", rG, rG, rG);
+    savePPM("rank_map_blue.ppm", rB, rB, rB);
+
     saveSeparateChannels("final", oR, oG, oB);
 
     savePPM("final.ppm", oR, oG, oB);
