@@ -1,45 +1,48 @@
-cmake_minimum_required(VERSION 3.14)
-project(SvdCompressionSpectra)
+cmake_minimum_required(VERSION 3.10)
 
+# Nazwa projektu
+project(HierarchicalMatrixCompression)
+
+# Ustawienie standardu C++ (C++17 jest bezpiecznym wyborem dla nowoczesnych bibliotek)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(FetchContent)
+# ------------------------------------------------------------------------------
+# 1. Konfiguracja biblioteki Eigen3
+# ------------------------------------------------------------------------------
+# Próba znalezienia zainstalowanej biblioteki Eigen3
+find_package(Eigen3 3.3 QUIET NO_MODULE)
 
-# komendy dla clangd
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(NOT Eigen3_FOUND)
+    message(STATUS "Eigen3 not found in system. Attempting to fetch content...")
+    include(FetchContent)
+    FetchContent_Declare(
+        Eigen3
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG        3.4.0
+    )
+    FetchContent_MakeAvailable(Eigen3)
+    # Po pobraniu przez FetchContent, Eigen jest dostępny jako target 'Eigen3::Eigen'
+endif()
 
-# 1. Pobieranie Eigen
-message(STATUS "Pobieranie Eigen...")
-FetchContent_Declare(
-  Eigen3
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG        3.4.0
-)
-FetchContent_MakeAvailable(Eigen3)
+# ------------------------------------------------------------------------------
+# 2. Definicja pliku wykonywalnego
+# ------------------------------------------------------------------------------
+# Zakładam, że Twój plik z kodem nazywa się main.cpp
+add_executable(HMatrixCompression src/main.cpp)
 
-# 2. Pobieranie Spectra
-message(STATUS "Pobieranie Spectra...")
-FetchContent_Declare(
-  Spectra
-  GIT_REPOSITORY https://github.com/yixuan/spectra.git
-  GIT_TAG        v1.0.1 # Stabilna wersja
-)
-FetchContent_MakeAvailable(Spectra)
+# ------------------------------------------------------------------------------
+# 3. Linkowanie i Include
+# ------------------------------------------------------------------------------
+# Linkowanie Eigen
+target_link_libraries(HMatrixCompression PRIVATE Eigen3::Eigen)
 
-add_executable(SvdCompression
-    src/main.cpp
-    src/compress.cpp
-    src/partial_svd.cpp
-    src/bitmap_utils.cpp
-)
+# Dodanie bieżącego katalogu do include (żeby widział stb_image.h w tym samym folderze)
+target_include_directories(HMatrixCompression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(SvdCompression PRIVATE 
-    ${eigen3_SOURCE_DIR}
-    ${spectra_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include
-)
-
-target_link_libraries(SvdCompression PRIVATE Eigen3::Eigen)
-
-# optymalizacja kompilacji
-target_compile_options(SvdCompression PRIVATE -O3 -march=native)
+# Opcjonalnie: optymalizacje dla kompilatora (dla szybszego działania SVD)
+if(MSVC)
+    target_compile_options(HMatrixCompression PRIVATE /O2 /fp:fast)
+else()
+    target_compile_options(HMatrixCompression PRIVATE -O3 -march=native)
+endif()
